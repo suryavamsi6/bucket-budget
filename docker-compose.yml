@@ -1,0 +1,14 @@
+services:
+  bucket-budget:
+    image: ghcr.io/suryavamsi6/bucket-budget:1.0.0
+    container_name: bucket-budget
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:3000/api/accounts" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3

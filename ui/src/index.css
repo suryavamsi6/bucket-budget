@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Caravan Aesthetic - Light Mode */
+    --background: 0 0% 98%;
+    /* Even softer #FAFAFA */
+    --foreground: 0 0% 9%;
+    /* Deep charcoal */
+    --card: 0 0% 100%;
+    /* Pure white */
+    --card-foreground: 0 0% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 9%;
+    --primary: 0 0% 15%;
+    /* Dark charcoal buttons */
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 94%;
+    /* Light grey surfaces */
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 94%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 0 0% 94%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 0 0% 15%;
+    --radius: 1.5rem;
+    /* Pill shape standard */
+  }
+
+  .dark {
+    /* Premium Deep Dark Mode */
+    --background: 222 47% 11%;
+    /* #0f172a Deep Slate */
+    --foreground: 210 40% 98%;
+    /* Crisp white text */
+    --card: 215 28% 17%;
+    /* #1e293b Slightly elevated slate */
+    --card-foreground: 210 40% 98%;
+    --popover: 215 28% 17%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    /* White buttons */
+    --primary-foreground: 222.2 47.4% 11.2%;
+    /* Dark text inside */
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 215 28% 17%;
+    /* Soft card backgrounds */
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 215 28% 22%;
+    /* Visible borders */
+    --input: 215 28% 22%;
+    --ring: 212.7 26.8% 83.9%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground tracking-tight transition-colors duration-300;
+  }
+}

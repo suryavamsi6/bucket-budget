@@ -1,0 +1,6 @@
+{
+    "flywayArgs": {
+        "url": "jdbc:sqlite:./db.sqlite",
+        "locations": "filesystem:src/db/flyway/sql"
+    }
+}

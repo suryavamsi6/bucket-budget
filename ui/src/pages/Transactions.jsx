@@ -553,13 +553,20 @@ export default function Transactions() {
                             </div>
                         )}
 
-                        <DialogFooter className="pt-4 border-t border-border">
-                            <Button type="button" variant="ghost" className="text-muted-foreground hover:text-foreground hover:bg-secondary" onClick={() => setShowModal(false)}>
-                                Cancel
-                            </Button>
-                            <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white">
-                                {editing ? 'Save Changes' : 'Add Transaction'}
-                            </Button>
+                        <DialogFooter className="pt-4 border-t border-border flex flex-col sm:flex-row justify-between gap-4 sm:gap-2">
+                            {editing ? (
+                                <Button type="button" variant="outline" className="text-rose-600 border-rose-200 hover:bg-rose-50 hover:border-rose-300 w-full sm:w-auto" onClick={() => { setShowModal(false); handleDelete(editing.id); }}>
+                                    Delete
+                                </Button>
+                            ) : <div />}
+                            <div className="flex gap-2 w-full sm:w-auto justify-end">
+                                <Button type="button" variant="ghost" className="text-muted-foreground hover:text-foreground hover:bg-secondary flex-1 sm:flex-none" onClick={() => setShowModal(false)}>
+                                    Cancel
+                                </Button>
+                                <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white flex-1 sm:flex-none">
+                                    {editing ? 'Save Changes' : 'Add Transaction'}
+                                </Button>
+                            </div>
                         </DialogFooter>
                     </form>
                 </DialogContent>

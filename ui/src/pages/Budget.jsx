@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Copy, ArrowLeftRight, Layers } from 'lucide-react';
-import { getBudget, getBudgetSummary, assignBudget, createCategoryGroup, createCategory, updateCategory, copyBudget, moveMoney } from '../api/client.js';
+import { getBudget, getBudgetSummary, assignBudget, createCategoryGroup, createCategory, updateCategory, deleteCategory, copyBudget, moveMoney } from '../api/client.js';
 import { useSettings } from '../hooks/useSettings.jsx';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -148,6 +148,20 @@ export default function Budget() {
         setEditCat(null);
         setShowEditCatModal(false);
         loadData();
+    };
+
+    const handleDeleteCategory = async () => {
+        if (!editCat || !window.confirm('Delete this category? Transactions linked to it may become uncategorized.')) return;
+        try {
+            await deleteCategory(editCat.id);
+            setEditCat(null);
+            setShowEditCatModal(false);
+            setToast('Category deleted!');
+            setTimeout(() => setToast(null), 3000);
+            loadData();
+        } catch (e) {
+            alert(e.message);
+        }
     };
 
     const handleCopyLastMonth = async () => {
@@ -326,7 +340,7 @@ export default function Budget() {
                                                 <div className="relative">
                                                     <Input
                                                         type="number"
-                                                        className="h-8 w-full border-transparent bg-muted/50 text-right font-mono text-sm text-foreground/80 shadow-none transition-all hover:border-muted-foreground/30 focus:border-primary focus:bg-card focus-visible:ring-1 focus-visible:ring-primary md:h-9"
+                                                        className="h-8 w-full border-transparent bg-muted/50 text-right font-mono text-sm text-foreground/80 shadow-none transition-all hover:border-muted-foreground/30 focus:border-primary focus:bg-card focus-visible:ring-1 focus-visible:ring-primary md:h-9 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
                                                         defaultValue={cat.assigned || 0}
                                                         onBlur={(e) => handleAssign(cat.id, e.target.value)}
                                                         onKeyDown={(e) => e.key === 'Enter' && e.target.blur()}
@@ -487,7 +501,7 @@ export default function Budget() {
                                     id="goalAmount"
                                     type="number"
                                     step="0.01"
-                                    className="bg-card border-border text-card-foreground placeholder:text-muted-foreground focus-visible:ring-primary font-mono"
+                                    className="bg-card border-border text-card-foreground placeholder:text-muted-foreground focus-visible:ring-primary font-mono [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
                                     value={newCat.goal_amount}
                                     onChange={e => setNewCat({ ...newCat, goal_amount: e.target.value })}
                                     placeholder="0.00"
@@ -505,6 +519,106 @@ export default function Budget() {
                             </Button>
                         </DialogFooter>
                     </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Edit Category Modal */}
+            <Dialog open={showEditCatModal} onOpenChange={setShowEditCatModal}>
+                <DialogContent className="sm:max-w-[425px] bg-background border-border text-foreground/80">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-semibold mb-2 text-card-foreground">Edit Category</DialogTitle>
+                        <DialogDescription className="text-muted-foreground">
+                            Update category details or delete it.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {editCat && (
+                        <form onSubmit={handleEditCategory} className="space-y-4 pt-2">
+                            <div className="space-y-2">
+                                <Label htmlFor="editCatName" className="text-muted-foreground text-xs uppercase tracking-wider">Category Name</Label>
+                                <Input
+                                    id="editCatName"
+                                    className="bg-card border-border text-card-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
+                                    value={editCat.name}
+                                    onChange={e => setEditCat({ ...editCat, name: e.target.value })}
+                                    required
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="editGoalType" className="text-muted-foreground text-xs uppercase tracking-wider">Goal Type</Label>
+                                    <select
+                                        id="editGoalType"
+                                        className="flex h-10 w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                        value={editCat.goal_type || ''}
+                                        onChange={e => setEditCat({ ...editCat, goal_type: e.target.value })}
+                                    >
+                                        <option value="">No goal</option>
+                                        <option value="monthly_funding">Monthly Funding</option>
+                                        <option value="target_balance">Target Balance</option>
+                                        <option value="target_by_date">Target by Date</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="editGoalAmount" className="text-muted-foreground text-xs uppercase tracking-wider">Goal Amount</Label>
+                                    <Input
+                                        id="editGoalAmount"
+                                        type="number"
+                                        step="0.01"
+                                        className="bg-card border-border text-card-foreground placeholder:text-muted-foreground focus-visible:ring-primary font-mono [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
+                                        value={editCat.goal_amount}
+                                        onChange={e => setEditCat({ ...editCat, goal_amount: e.target.value })}
+                                        disabled={!editCat.goal_type}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="editRolloverStrategy" className="text-muted-foreground text-xs uppercase tracking-wider">Rollover Strategy</Label>
+                                <select
+                                    id="editRolloverStrategy"
+                                    className="flex h-10 w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                    value={editCat.rollover_strategy || 'none'}
+                                    onChange={e => setEditCat({ ...editCat, rollover_strategy: e.target.value })}
+                                >
+                                    <option value="none">None - Reset to 0</option>
+                                    <option value="rollover">Rollover Funds (Accumulate)</option>
+                                    <option value="sweep">Sweep Leftover Funds</option>
+                                </select>
+                            </div>
+                            {editCat.rollover_strategy === 'sweep' && (
+                                <div className="space-y-2">
+                                    <Label htmlFor="editSweepTarget" className="text-muted-foreground text-xs uppercase tracking-wider">Sweep Target Category</Label>
+                                    <select
+                                        id="editSweepTarget"
+                                        className="flex h-10 w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                        value={editCat.sweep_target_id || ''}
+                                        onChange={e => setEditCat({ ...editCat, sweep_target_id: e.target.value })}
+                                        required={editCat.rollover_strategy === 'sweep'}
+                                    >
+                                        <option value="" disabled>Select target...</option>
+                                        {allCategories.filter(c => c.id !== editCat.id).map(c => (
+                                            <option key={c.id} value={c.id}>{c.group_name} › {c.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            <DialogFooter className="pt-4 border-t border-border flex flex-col sm:flex-row justify-between gap-4 sm:gap-2">
+                                <Button type="button" variant="outline" className="text-rose-600 border-rose-200 hover:bg-rose-50 hover:border-rose-300 w-full sm:w-auto" onClick={handleDeleteCategory}>
+                                    Delete
+                                </Button>
+                                <div className="flex gap-2 w-full sm:w-auto mt-4 sm:mt-0 justify-end">
+                                    <Button type="button" variant="ghost" className="text-muted-foreground hover:text-foreground hover:bg-secondary flex-1 sm:flex-none" onClick={() => setShowEditCatModal(false)}>
+                                        Cancel
+                                    </Button>
+                                    <Button type="submit" className="bg-primary text-primary-foreground hover:bg-primary/90 flex-1 sm:flex-none">
+                                        Save
+                                    </Button>
+                                </div>
+                            </DialogFooter>
+                        </form>
+                    )}
                 </DialogContent>
             </Dialog>
 
@@ -566,7 +680,7 @@ export default function Budget() {
                                     id="moveAmount"
                                     type="number"
                                     step="0.01"
-                                    className="bg-card border-border text-card-foreground placeholder:text-muted-foreground focus-visible:ring-primary font-mono text-lg pl-8"
+                                    className="bg-card border-border text-card-foreground placeholder:text-muted-foreground focus-visible:ring-primary font-mono text-lg pl-8 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
                                     value={moveData.amount}
                                     onChange={e => setMoveData({ ...moveData, amount: e.target.value })}
                                     placeholder="0.00"

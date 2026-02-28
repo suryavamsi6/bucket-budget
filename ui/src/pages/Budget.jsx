@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Copy, ArrowLeftRight, Layers } from 'lucide-react';
-import { getBudget, getBudgetSummary, assignBudget, createCategoryGroup, createCategory, updateCategory, deleteCategory, copyBudget, moveMoney } from '../api/client.js';
+import { ChevronLeft, ChevronRight, Plus, Copy, ArrowLeftRight, Layers, Settings, Trash2 } from 'lucide-react';
+import { getBudget, getBudgetSummary, assignBudget, createCategoryGroup, createCategory, updateCategory, deleteCategory, deleteCategoryGroup, copyBudget, moveMoney, getSettings, updateSettings } from '../api/client.js';
 import { useSettings } from '../hooks/useSettings.jsx';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -25,6 +25,27 @@ export default function Budget() {
     const [moveData, setMoveData] = useState({ from: '', to: '', amount: '' });
     const [toast, setToast] = useState(null);
     const [showTemplateModal, setShowTemplateModal] = useState(false);
+    const [replaceSettings, setReplaceSettings] = useState(false);
+    const [customTemplates, setCustomTemplates] = useState([]);
+
+    const fetchCustomTemplates = useCallback(async () => {
+        try {
+            const settings = await getSettings();
+            if (settings.budget_custom_templates) {
+                setCustomTemplates(JSON.parse(settings.budget_custom_templates));
+            } else {
+                setCustomTemplates([]);
+            }
+        } catch (e) {
+            console.error('Failed to load custom templates', e);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (showTemplateModal) {
+            fetchCustomTemplates();
+        }
+    }, [showTemplateModal, fetchCustomTemplates]);
 
     const BUDGET_TEMPLATES = [
         {
@@ -295,7 +316,7 @@ export default function Budget() {
                                 const isAvailableZero = available === 0;
 
                                 return (
-                                    <div key={cat.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors group">
+                                    <div key={cat.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between pl-4 pr-4 sm:pr-16 py-3 hover:bg-muted/30 transition-colors group relative">
 
                                         {/* Category Info */}
                                         <div
@@ -368,6 +389,39 @@ export default function Budget() {
                                             </div>
 
                                         </div>
+
+                                        {/* Quick Actions (Hover) */}
+                                        <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex items-center gap-1">
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-secondary" onClick={(e) => {
+                                                e.stopPropagation();
+                                                setEditCat({
+                                                    ...cat,
+                                                    group_id: cat.group_id.toString(),
+                                                    goal_amount: cat.goal_amount || '',
+                                                    goal_type: cat.goal_type || '',
+                                                    rollover_strategy: cat.rollover_strategy || 'none',
+                                                    sweep_target_id: cat.sweep_target_id ? cat.sweep_target_id.toString() : ''
+                                                });
+                                                setShowEditCatModal(true);
+                                            }} title="Edit Category">
+                                                <Settings className="h-4 w-4" />
+                                            </Button>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10" onClick={async (e) => {
+                                                e.stopPropagation();
+                                                if (!window.confirm('Delete this category? Transactions linked to it may become uncategorized.')) return;
+                                                try {
+                                                    await deleteCategory(cat.id);
+                                                    setToast('Category deleted!');
+                                                    setTimeout(() => setToast(null), 3000);
+                                                    loadData();
+                                                } catch (err) {
+                                                    alert(err.message);
+                                                }
+                                            }} title="Delete Category">
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+
                                     </div>
                                 );
                             })}
@@ -712,6 +766,12 @@ export default function Budget() {
                         {BUDGET_TEMPLATES.map((tpl, i) => (
                             <button key={i} onClick={async () => {
                                 try {
+                                    setLoading(true);
+                                    if (replaceSettings) {
+                                        for (const g of groups) {
+                                            await deleteCategoryGroup(g.id);
+                                        }
+                                    }
                                     for (const grp of tpl.groups) {
                                         const g = await createCategoryGroup({ name: grp.name });
                                         for (const catName of grp.categories) {
@@ -722,7 +782,7 @@ export default function Budget() {
                                     setToast(`Template "${tpl.name}" applied!`);
                                     setTimeout(() => setToast(null), 3000);
                                     loadData();
-                                } catch (e) { alert(e.message); }
+                                } catch (e) { alert(e.message); setLoading(false); }
                             }}
                                 className="group w-full rounded-2xl border border-border p-4 text-left transition-all hover:border-primary/50 hover:bg-primary/5">
                                 <div className="flex items-center gap-3 mb-1">
@@ -737,6 +797,118 @@ export default function Budget() {
                                 </div>
                             </button>
                         ))}
+
+                        {customTemplates.length > 0 && (
+                            <>
+                                <div className="mt-6 mb-2 border-b border-border pb-2 px-1">
+                                    <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Your Custom Templates</h4>
+                                </div>
+                                {customTemplates.map((tpl, i) => (
+                                    <div key={`custom-${i}`} className="group relative flex w-full rounded-2xl border border-border p-4 transition-all hover:border-primary/50 hover:bg-primary/5">
+                                        <button onClick={async () => {
+                                            try {
+                                                setLoading(true);
+                                                if (replaceSettings) {
+                                                    for (const g of groups) {
+                                                        await deleteCategoryGroup(g.id);
+                                                    }
+                                                }
+                                                for (const grp of tpl.groups) {
+                                                    const g = await createCategoryGroup({ name: grp.name });
+                                                    for (const catName of grp.categories) {
+                                                        await createCategory({ group_id: g.id, name: catName });
+                                                    }
+                                                }
+                                                setShowTemplateModal(false);
+                                                setToast(`Template "${tpl.name}" applied!`);
+                                                setTimeout(() => setToast(null), 3000);
+                                                loadData();
+                                            } catch (e) { alert(e.message); setLoading(false); }
+                                        }} className="flex-1 text-left">
+                                            <div className="flex items-center gap-3 mb-1">
+                                                <span className="text-xl">{tpl.icon || '📝'}</span>
+                                                <span className="font-semibold text-card-foreground transition-colors group-hover:text-primary">{tpl.name}</span>
+                                            </div>
+                                            <p className="text-xs text-muted-foreground ml-9">{tpl.description}</p>
+                                            <div className="flex flex-wrap gap-1 mt-2 ml-9">
+                                                {tpl.groups.map((g, j) => (
+                                                    <span key={j} className="text-[10px] bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{g.name}</span>
+                                                ))}
+                                            </div>
+                                        </button>
+                                        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10" onClick={async (e) => {
+                                                e.stopPropagation();
+                                                if (!window.confirm(`Delete custom template "${tpl.name}"?`)) return;
+                                                const newTpls = customTemplates.filter((_, idx) => idx !== i);
+                                                try {
+                                                    await updateSettings({ budget_custom_templates: JSON.stringify(newTpls) });
+                                                    setCustomTemplates(newTpls);
+                                                    setToast('Custom template deleted');
+                                                    setTimeout(() => setToast(null), 3000);
+                                                } catch (err) {
+                                                    alert('Failed to delete template: ' + err.message);
+                                                }
+                                            }}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </>
+                        )}
+
+                        <div className="mt-6 pt-4 border-t border-border space-y-4">
+                            <div className="flex items-center space-x-2">
+                                <input
+                                    type="checkbox"
+                                    id="replaceCategories"
+                                    className="h-4 w-4 rounded border-border bg-card text-primary focus:ring-primary focus:ring-offset-background"
+                                    checked={replaceSettings}
+                                    onChange={e => setReplaceSettings(e.target.checked)}
+                                />
+                                <Label htmlFor="replaceCategories" className="text-sm font-medium leading-none cursor-pointer text-muted-foreground">
+                                    Replace existing categories
+                                </Label>
+                            </div>
+                            <div className="text-xs text-muted-foreground ml-6 max-w-[400px]">
+                                If checked, applying a template will delete all your current groups and categories first. Any attached transactions will become uncategorized.
+                            </div>
+
+                            <div className="pt-2">
+                                <Button variant="outline" className="w-full bg-card border-border text-foreground hover:bg-secondary" onClick={async () => {
+                                    const name = window.prompt("Enter a name for this custom template:");
+                                    if (!name) return;
+                                    const desc = window.prompt("Enter a short description (optional):") || 'Custom budget template';
+
+                                    const templateGroups = groups.map(g => ({
+                                        name: g.name,
+                                        categories: g.categories.map(c => c.name)
+                                    }));
+
+                                    const newTemplate = {
+                                        name,
+                                        description: desc,
+                                        icon: '✨',
+                                        color: 'indigo',
+                                        groups: templateGroups
+                                    };
+
+                                    const newTpls = [...customTemplates, newTemplate];
+                                    try {
+                                        await updateSettings({ budget_custom_templates: JSON.stringify(newTpls) });
+                                        setCustomTemplates(newTpls);
+                                        setToast('Saved current layout as custom template!');
+                                        setTimeout(() => setToast(null), 3000);
+                                    } catch (err) {
+                                        alert('Failed to save template: ' + err.message);
+                                    }
+                                }}>
+                                    <Copy className="mr-2 h-4 w-4" /> Save Current as Custom Template
+                                </Button>
+                            </div>
+                        </div>
+
                     </div>
                 </DialogContent>
             </Dialog>

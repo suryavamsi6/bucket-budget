@@ -2,6 +2,25 @@ import db from '../db/knex.js';
 import authenticate from '../middleware/auth.js';
 import { buildFinancialContext } from './export.js';
 
+function isValidBaseUrl(urlStr) {
+    if (!urlStr) return false;
+    try {
+        const url = new URL(urlStr);
+        // Only allow http and https
+        if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+            return false;
+        }
+        // Block well-known cloud metadata IPs (AWS, GCP, Azure, etc.)
+        const blockedHosts = ['169.254.169.254', '169.254.169.253', '[fd00:ec2::254]'];
+        if (blockedHosts.includes(url.hostname)) {
+            return false;
+        }
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
 export default async function aiRoutes(fastify) {
     fastify.addHook('preHandler', authenticate);
 
@@ -10,6 +29,10 @@ export default async function aiRoutes(fastify) {
         const { provider = 'ollama', base_url } = request.query;
 
         const baseUrl = base_url || (provider === 'ollama' ? 'http://localhost:11434' : 'http://localhost:1234');
+
+        if (!isValidBaseUrl(baseUrl)) {
+            return reply.code(400).send({ error: 'Invalid or blocked base_url provided' });
+        }
 
         try {
             if (provider === 'ollama') {
@@ -45,6 +68,10 @@ export default async function aiRoutes(fastify) {
         const { messages, provider = 'ollama', base_url, model, include_context = true } = request.body;
 
         const baseUrl = base_url || (provider === 'ollama' ? 'http://localhost:11434' : 'http://localhost:1234');
+
+        if (!isValidBaseUrl(baseUrl)) {
+            return reply.code(400).send({ error: 'Invalid or blocked base_url provided' });
+        }
 
         if (!messages || !messages.length) {
             return reply.code(400).send({ error: 'messages array is required' });

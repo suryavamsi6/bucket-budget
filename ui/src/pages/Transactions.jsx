@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Edit, Trash2, Upload, CheckCircle, AlertCircle, ArrowUpDown, Search, Paperclip, FileText, Image as ImageIcon, X, Loader2 } from 'lucide-react';
-import { getTransactions, getAccounts, getCategoryGroups, createTransaction, updateTransaction, deleteTransaction, importCSV, getPayeeSuggestions, uploadAttachment, deleteAttachment } from '../api/client.js';
+import { Plus, Edit, Trash2, Upload, CheckCircle, AlertCircle, ArrowUpDown, Search, Paperclip, FileText, Image as ImageIcon, X, Loader2, Wand2, GitMerge, Split, Copy } from 'lucide-react';
+import { getTransactions, getAccounts, getCategoryGroups, createTransaction, updateTransaction, deleteTransaction, importCSV, getPayeeSuggestions, uploadAttachment, deleteAttachment, suggestCategory, getDuplicates, matchTransactions, getSplitTemplates } from '../api/client.js';
 import { useSettings } from '../hooks/useSettings.jsx';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
 
-function PayeeInput({ value, onChange }) {
+function PayeeInput({ value, onChange, onBlur }) {
     const [suggestions, setSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [highlighted, setHighlighted] = useState(-1);
@@ -67,6 +67,7 @@ function PayeeInput({ value, onChange }) {
                 value={value}
                 onChange={e => handleInput(e.target.value)}
                 onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                onBlur={() => { setTimeout(() => setShowSuggestions(false), 200); onBlur?.(); }}
                 onKeyDown={handleKeyDown}
                 placeholder="Who did you pay?"
                 autoComplete="off"
@@ -98,9 +99,13 @@ export default function Transactions() {
     const [showModal, setShowModal] = useState(false);
     const [showImport, setShowImport] = useState(false);
     const [editing, setEditing] = useState(null);
-    const [form, setForm] = useState({ account_id: '', category_id: '', date: '', payee: '', amount: '', memo: '', cleared: false, attachments: [] });
+    const [form, setForm] = useState({ account_id: '', category_id: '', date: '', payee: '', amount: '', memo: '', cleared: false, attachments: [], splits: [], is_split: false });
     const [isUploading, setIsUploading] = useState(false);
     const [importAccountId, setImportAccountId] = useState('');
+    const [categorySuggestions, setCategorySuggestions] = useState([]);
+    const [showDuplicates, setShowDuplicates] = useState(false);
+    const [duplicates, setDuplicates] = useState([]);
+    const [splitTemplates, setSplitTemplates] = useState([]);
     const fileInputRef = useRef(null);
 
     const loadData = async () => {
@@ -134,8 +139,10 @@ export default function Transactions() {
             account_id: accounts[0]?.id || '',
             category_id: '',
             date: new Date().toISOString().split('T')[0],
-            payee: '', amount: '', memo: '', cleared: false, attachments: []
+            payee: '', amount: '', memo: '', cleared: false, attachments: [],
+            splits: [], is_split: false
         });
+        setCategorySuggestions([]);
         setShowModal(true);
     };
 
@@ -149,9 +156,85 @@ export default function Transactions() {
             amount: txn.amount,
             memo: txn.memo || '',
             cleared: !!txn.cleared,
-            attachments: txn.attachments || []
+            attachments: txn.attachments || [],
+            splits: txn.splits || [],
+            is_split: !!txn.is_split
         });
+        setCategorySuggestions([]);
         setShowModal(true);
+    };
+
+    const fetchCategorySuggestions = async (payee) => {
+        if (payee.length < 2 || form.category_id) return;
+        try {
+            const result = await suggestCategory({ payee, amount: form.amount || '0', date: form.date });
+            if (result.suggestions?.length > 0) {
+                setCategorySuggestions(result.suggestions);
+            }
+        } catch { /* ignore */ }
+    };
+
+    const addSplit = () => {
+        setForm(f => ({
+            ...f,
+            is_split: true,
+            splits: [...f.splits, { category_id: '', amount: '', memo: '', payee: '' }]
+        }));
+    };
+
+    const removeSplit = (index) => {
+        setForm(f => {
+            const splits = f.splits.filter((_, i) => i !== index);
+            return { ...f, splits, is_split: splits.length > 0 };
+        });
+    };
+
+    const updateSplit = (index, field, value) => {
+        setForm(f => {
+            const splits = [...f.splits];
+            splits[index] = { ...splits[index], [field]: value };
+            return { ...f, splits };
+        });
+    };
+
+    const applySplitTemplate = async (templateId) => {
+        try {
+            const templates = splitTemplates.length > 0 ? splitTemplates : await getSplitTemplates();
+            if (!splitTemplates.length) setSplitTemplates(templates);
+            const tpl = templates.find(t => t.id === templateId);
+            if (tpl && tpl.lines) {
+                setForm(f => ({
+                    ...f,
+                    is_split: true,
+                    splits: tpl.lines.map(l => ({
+                        category_id: l.category_id || '',
+                        amount: l.amount || '',
+                        memo: l.memo || '',
+                        payee: l.payee || ''
+                    }))
+                }));
+            }
+        } catch { /* ignore */ }
+    };
+
+    const loadDuplicates = async () => {
+        try {
+            const result = await getDuplicates({});
+            setDuplicates(result);
+            setShowDuplicates(true);
+        } catch (err) {
+            console.error('Failed to load duplicates:', err);
+        }
+    };
+
+    const handleMerge = async (keepId, mergeId) => {
+        try {
+            await matchTransactions({ keep_id: keepId, merge_id: mergeId });
+            loadDuplicates();
+            loadData();
+        } catch (err) {
+            console.error('Merge failed:', err);
+        }
     };
 
     const handleFileUpload = async (e) => {
@@ -189,8 +272,16 @@ export default function Transactions() {
             ...form,
             account_id: parseInt(form.account_id),
             category_id: form.category_id ? parseInt(form.category_id) : null,
-            amount: parseFloat(form.amount)
+            amount: parseFloat(form.amount),
+            is_split: form.is_split,
+            splits: form.is_split ? form.splits.map(s => ({
+                category_id: s.category_id ? parseInt(s.category_id) : null,
+                amount: parseFloat(s.amount),
+                memo: s.memo || '',
+                payee: s.payee || ''
+            })).filter(s => s.amount) : undefined
         };
+        delete data.attachments;
         if (editing) {
             await updateTransaction(editing.id, data);
         } else {
@@ -267,6 +358,9 @@ export default function Transactions() {
                 </div>
 
                 <div className="flex items-center gap-2 w-full lg:w-auto justify-end">
+                    <Button variant="outline" className="bg-transparent border-border text-muted-foreground hover:bg-secondary hover:text-foreground" onClick={loadDuplicates}>
+                        <Copy className="mr-2 h-4 w-4" /> Duplicates
+                    </Button>
                     <Button variant="outline" className="bg-transparent border-border text-muted-foreground hover:bg-secondary hover:text-foreground" onClick={() => setShowImport(true)}>
                         <Upload className="mr-2 h-4 w-4" /> Import CSV
                     </Button>
@@ -290,6 +384,7 @@ export default function Transactions() {
                                     <TableHead className="text-muted-foreground font-medium min-w-[140px]">Account</TableHead>
                                     <TableHead className="text-muted-foreground font-medium min-w-[160px]">Memo</TableHead>
                                     <TableHead className="text-right text-muted-foreground font-medium min-w-[100px]">Amount</TableHead>
+                                    <TableHead className="text-right text-muted-foreground font-medium min-w-[100px]">Balance</TableHead>
                                     <TableHead className="w-[80px]"></TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -321,14 +416,24 @@ export default function Transactions() {
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-muted-foreground text-sm py-3">
-                                            <div className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-muted text-muted-foreground">
-                                                {txn.category_name || 'Uncategorized'}
+                                            <div className="flex items-center gap-1">
+                                                <div className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-muted text-muted-foreground">
+                                                    {txn.category_name || 'Uncategorized'}
+                                                </div>
+                                                {txn.is_split && (
+                                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-violet-500/10 text-violet-500" title="Split transaction">
+                                                        <Split className="h-3 w-3" />Split
+                                                    </span>
+                                                )}
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-muted-foreground text-sm py-3">{txn.account_name}</TableCell>
                                         <TableCell className="text-muted-foreground text-sm py-3 max-w-[200px] truncate" title={txn.memo}>{txn.memo}</TableCell>
                                         <TableCell className={`text-right font-mono font-medium py-3 ${parseFloat(txn.amount) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                             {fmt(txn.amount)}
+                                        </TableCell>
+                                        <TableCell className="text-right font-mono text-sm text-muted-foreground py-3">
+                                            {txn.running_balance != null ? fmt(txn.running_balance) : '—'}
                                         </TableCell>
                                         <TableCell className="py-3 pr-4">
                                             <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -433,7 +538,7 @@ export default function Transactions() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2 sm:col-span-1">
                                 <Label className="text-muted-foreground text-xs uppercase tracking-wider">Payee</Label>
-                                <PayeeInput value={form.payee} onChange={val => setForm({ ...form, payee: val })} />
+                                <PayeeInput value={form.payee} onChange={val => setForm({ ...form, payee: val })} onBlur={() => fetchCategorySuggestions(form.payee)} />
                             </div>
                             <div className="space-y-2 sm:col-span-1">
                                 <Label htmlFor="amount" className="text-muted-foreground text-xs uppercase tracking-wider">Amount</Label>
@@ -463,10 +568,77 @@ export default function Transactions() {
                                 className="flex h-10 w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                                 value={form.category_id}
                                 onChange={e => setForm({ ...form, category_id: e.target.value })}
+                                disabled={form.is_split}
                             >
                                 <option value="">Uncategorized / Ready to Assign</option>
                                 {categories.map(c => <option key={c.id} value={c.id}>{c.group_name} › {c.name}</option>)}
                             </select>
+                            {/* ML Category suggestions */}
+                            {categorySuggestions.length > 0 && !form.category_id && !form.is_split && (
+                                <div className="flex items-center gap-1 flex-wrap">
+                                    <Wand2 className="h-3.5 w-3.5 text-muted-foreground" />
+                                    {categorySuggestions.slice(0, 3).map((s, i) => (
+                                        <button
+                                            key={i}
+                                            type="button"
+                                            onClick={() => setForm({ ...form, category_id: String(s.category_id) })}
+                                            className="text-[11px] px-2 py-0.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                                        >
+                                            {s.category_name} ({Math.round(s.confidence * 100)}%)
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Split transactions section */}
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+                                    Split Transaction
+                                </Label>
+                                <div className="flex gap-1">
+                                    <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={addSplit}>
+                                        <Plus className="h-3 w-3 mr-1" /> Add Split
+                                    </Button>
+                                </div>
+                            </div>
+                            {form.splits.length > 0 && (
+                                <div className="space-y-2 border border-border rounded-xl p-3 bg-muted/20">
+                                    {form.splits.map((split, idx) => (
+                                        <div key={idx} className="flex items-center gap-2">
+                                            <select
+                                                className="flex-1 h-8 rounded-lg border border-border bg-card px-2 text-xs"
+                                                value={split.category_id}
+                                                onChange={e => updateSplit(idx, 'category_id', e.target.value)}
+                                            >
+                                                <option value="">Category...</option>
+                                                {categories.map(c => <option key={c.id} value={c.id}>{c.group_name} › {c.name}</option>)}
+                                            </select>
+                                            <Input
+                                                type="number" step="0.01" placeholder="Amount"
+                                                className="w-24 h-8 text-xs font-mono"
+                                                value={split.amount}
+                                                onChange={e => updateSplit(idx, 'amount', e.target.value)}
+                                            />
+                                            <Input
+                                                placeholder="Memo"
+                                                className="flex-1 h-8 text-xs"
+                                                value={split.memo}
+                                                onChange={e => updateSplit(idx, 'memo', e.target.value)}
+                                            />
+                                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-rose-500" onClick={() => removeSplit(idx)}>
+                                                <X className="h-3.5 w-3.5" />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                    {form.amount && (
+                                        <p className="text-[10px] text-muted-foreground text-right">
+                                            Remaining: {fmt(parseFloat(form.amount) - form.splits.reduce((s, sp) => s + (parseFloat(sp.amount) || 0), 0))}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         <div className="space-y-2">
@@ -627,6 +799,52 @@ export default function Transactions() {
                             Cancel
                         </Button>
                     </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Duplicate Review Dialog */}
+            <Dialog open={showDuplicates} onOpenChange={setShowDuplicates}>
+                <DialogContent className="sm:max-w-[600px] bg-background border-border text-foreground/80 max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-semibold text-card-foreground flex items-center gap-2">
+                            <GitMerge className="h-5 w-5" /> Duplicate Review
+                        </DialogTitle>
+                        <DialogDescription className="text-muted-foreground">
+                            These transactions have matching amounts, dates, and payees. Merge duplicates to keep your records clean.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                        {duplicates.length === 0 ? (
+                            <p className="text-center text-muted-foreground py-8">No duplicates found. Your records are clean!</p>
+                        ) : (
+                            duplicates.map((group, gi) => (
+                                <div key={gi} className="border border-border rounded-xl p-3 space-y-2">
+                                    <p className="text-xs font-medium text-muted-foreground">
+                                        {group.date} · {group.payee} · {fmt(group.amount)} ({group.transactions?.length || 0} matches)
+                                    </p>
+                                    {group.transactions?.map((txn, ti) => (
+                                        <div key={txn.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
+                                            <div className="text-sm">
+                                                <span className="font-medium">{txn.account_name}</span>
+                                                <span className="text-muted-foreground ml-2">{txn.memo || 'No memo'}</span>
+                                            </div>
+                                            {ti > 0 && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="text-xs h-7"
+                                                    onClick={() => handleMerge(group.transactions[0].id, txn.id)}
+                                                >
+                                                    <GitMerge className="h-3 w-3 mr-1" /> Merge into first
+                                                </Button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            ))
+                        )}
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>

@@ -226,4 +226,88 @@ export const getRules = () => request('/rules');
 export const createRule = (data) => request('/rules', { method: 'POST', body: data });
 export const updateRule = (id, data) => request(`/rules/${id}`, { method: 'PUT', body: data });
 export const deleteRule = (id) => request(`/rules/${id}`, { method: 'DELETE' });
+export const applyRules = (data) => request('/rules/apply', { method: 'POST', body: data });
+
+// ── New Endpoints: Splits, CC Tracking, Forecasting, etc. ──────────────
+
+// Account enhanced (cleared/uncleared, reconciliation, CC)
+export const reconcileAccountEnhanced = (accountId, data) =>
+    request(`/accounts/${accountId}/reconcile`, { method: 'POST', body: data });
+export const getCCPaymentInfo = (accountId, month) =>
+    request(`/accounts/${accountId}/cc-payment-info?month=${month || ''}`);
+
+// Transaction splits & ML
+export const getTransaction = (id) => request(`/transactions/${id}`);
+export const suggestCategory = (params) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/transactions/suggest-category?${qs}`);
+};
+export const submitCategorizationFeedback = (data) =>
+    request('/transactions/categorization-feedback', { method: 'POST', body: data });
+export const retrainModel = () => request('/transactions/retrain', { method: 'POST' });
+export const getDuplicates = (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/transactions/duplicates?${qs}`);
+};
+export const matchTransactions = (data) =>
+    request('/transactions/match', { method: 'POST', body: data });
+export const getTransfers = (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/transactions/transfers?${qs}`);
+};
+
+// Funding Templates
+export const getFundingTemplates = () => request('/funding-templates');
+export const createFundingTemplate = (data) => request('/funding-templates', { method: 'POST', body: data });
+export const updateFundingTemplate = (id, data) => request(`/funding-templates/${id}`, { method: 'PUT', body: data });
+export const deleteFundingTemplate = (id) => request(`/funding-templates/${id}`, { method: 'DELETE' });
+export const applyFundingTemplate = (id, data) =>
+    request(`/funding-templates/${id}/apply`, { method: 'POST', body: data });
+
+// Split Templates
+export const getSplitTemplates = () => request('/split-templates');
+export const createSplitTemplate = (data) => request('/split-templates', { method: 'POST', body: data });
+export const updateSplitTemplate = (id, data) => request(`/split-templates/${id}`, { method: 'PUT', body: data });
+export const deleteSplitTemplate = (id) => request(`/split-templates/${id}`, { method: 'DELETE' });
+
+// Subscriptions upcoming
+export const getUpcomingBills = (days = 30) => request(`/subscriptions/upcoming?days=${days}`);
+
+// Report forecasting
+export const getCashflowForecast = (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/reports/cashflow-forecast?${qs}`);
+};
+export const getSpendingForecast = (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/reports/spending-forecast?${qs}`);
+};
+export const getNetWorthForecast = (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/reports/net-worth-forecast?${qs}`);
+};
+
+// Report PDF/CSV exports
+export const downloadTransactionsPDF = (params = {}) => downloadFile('/reports/export/transactions-pdf', params, 'transactions.pdf');
+export const downloadBudgetPDF = (month) => downloadFile(`/reports/export/budget-pdf/${month}`, {}, `budget-${month}.pdf`);
+export const downloadNetWorthPDF = (params = {}) => downloadFile('/reports/export/net-worth-pdf', params, 'net-worth.pdf');
+export const downloadTransactionsCSV = (params = {}) => downloadFile('/reports/export/transactions-csv', params, 'transactions.csv');
+
+// Helper for file downloads
+async function downloadFile(url, params, filename) {
+    const token = getAuthToken();
+    const qs = new URLSearchParams(params).toString();
+    const res = await fetch(`${BASE}${url}${qs ? '?' + qs : ''}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error('Download failed');
+    const blob = await res.blob();
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+}
 

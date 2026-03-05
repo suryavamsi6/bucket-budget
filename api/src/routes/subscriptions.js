@@ -90,4 +90,87 @@ export default async function subscriptionRoutes(fastify) {
         await db('recurring_transactions').where({ id, user_id: userId }).del();
         return { success: true };
     });
+
+    // Get upcoming projected transactions for the next N days (calendar / bill-pay view)
+    fastify.get('/upcoming', async (request) => {
+        const userId = request.user.id;
+        const days = parseInt(request.query.days || '30');
+        const today = new Date();
+        const endDate = new Date(today);
+        endDate.setDate(endDate.getDate() + days);
+        const endStr = endDate.toISOString().split('T')[0];
+        const todayStr = today.toISOString().split('T')[0];
+
+        const recurring = await db('recurring_transactions')
+            .select(
+                'recurring_transactions.*',
+                'accounts.name as account_name',
+                'categories.name as category_name'
+            )
+            .leftJoin('accounts', 'recurring_transactions.account_id', 'accounts.id')
+            .leftJoin('categories', 'recurring_transactions.category_id', 'categories.id')
+            .where('recurring_transactions.user_id', userId)
+            .where('recurring_transactions.status', 'active')
+            .where('recurring_transactions.next_date', '<=', endStr);
+
+        const upcoming = [];
+
+        for (const rec of recurring) {
+            let nextDate = new Date(rec.next_date);
+            // Generate all occurrences within the window
+            let safety = 0;
+            while (nextDate <= endDate && safety < 100) {
+                if (nextDate >= today) {
+                    upcoming.push({
+                        recurring_id: rec.id,
+                        date: nextDate.toISOString().split('T')[0],
+                        payee: rec.payee,
+                        amount: rec.amount,
+                        type: rec.type,
+                        frequency: rec.frequency,
+                        account_name: rec.account_name,
+                        category_name: rec.category_name,
+                        is_subscription: rec.is_subscription,
+                        is_projected: true
+                    });
+                }
+                // Advance to next occurrence
+                nextDate = advanceDate(nextDate, rec.frequency);
+                safety++;
+            }
+        }
+
+        // Sort by date
+        upcoming.sort((a, b) => a.date.localeCompare(b.date));
+
+        // Also add already-recorded transactions for the period
+        const recorded = await db('transactions')
+            .select('transactions.*', 'accounts.name as account_name', 'categories.name as category_name')
+            .leftJoin('accounts', 'transactions.account_id', 'accounts.id')
+            .leftJoin('categories', 'transactions.category_id', 'categories.id')
+            .where('transactions.user_id', userId)
+            .where('transactions.date', '>=', todayStr)
+            .where('transactions.date', '<=', endStr)
+            .orderBy('transactions.date', 'asc');
+
+        return {
+            upcoming,
+            recorded: recorded.map(t => ({ ...t, is_projected: false })),
+            total_projected: upcoming.reduce((s, u) => s + parseFloat(u.amount || 0), 0)
+        };
+    });
+}
+
+function advanceDate(date, frequency) {
+    const d = new Date(date);
+    switch (frequency) {
+        case 'daily': d.setDate(d.getDate() + 1); break;
+        case 'weekly': d.setDate(d.getDate() + 7); break;
+        case 'biweekly': d.setDate(d.getDate() + 14); break;
+        case 'monthly': d.setMonth(d.getMonth() + 1); break;
+        case 'quarterly': d.setMonth(d.getMonth() + 3); break;
+        case 'yearly': d.setFullYear(d.getFullYear() + 1); break;
+        default: d.setMonth(d.getMonth() + 1); break;
+    }
+    return d;
 }

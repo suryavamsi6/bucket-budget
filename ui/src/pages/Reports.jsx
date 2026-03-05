@@ -28,18 +28,35 @@ import {
     getSankeyData,
     getExportTransactionsUrl,
     getPayeeLeaderboard,
-    getSpendingHeatmap
+    getSpendingHeatmap,
+    getCashflowForecast,
+    getSpendingForecast,
+    getNetWorthForecast,
+    downloadTransactionsPDF,
+    downloadBudgetPDF,
+    downloadNetWorthPDF,
+    downloadTransactionsCSV
 } from '../api/client.js';
 import {
     Activity,
     BarChart3,
     Bot,
     Download,
+    FileText,
+    FileSpreadsheet,
     Landmark,
     Network,
     PieChart as PieChartIcon,
-    TrendingUp
+    TrendingUp,
+    Telescope,
+    ChevronDown
 } from 'lucide-react';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger
+} from '../components/ui/dropdown-menu';
 import { Button } from '../components/ui/button';
 import { useSettings } from '../hooks/useSettings.jsx';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
@@ -107,7 +124,11 @@ export default function Reports() {
     const [sankeyData, setSankeyData] = useState(null);
     const [payees, setPayees] = useState([]);
     const [heatmap, setHeatmap] = useState([]);
+    const [cashflowForecast, setCashflowForecast] = useState(null);
+    const [spendingForecast, setSpendingForecast] = useState(null);
+    const [netWorthForecast, setNetWorthForecast] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [exporting, setExporting] = useState(null);
 
     const currentMonth = new Date().toISOString().slice(0, 7);
     const monthLabel = new Date(currentMonth + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -121,8 +142,11 @@ export default function Reports() {
             getSpendingTrend(6),
             getSankeyData(currentMonth),
             getPayeeLeaderboard(),
-            getSpendingHeatmap()
-        ]).then(([sp, ie, nw, ba, tr, sk, py, hm]) => {
+            getSpendingHeatmap(),
+            getCashflowForecast().catch(() => null),
+            getSpendingForecast().catch(() => null),
+            getNetWorthForecast().catch(() => null)
+        ]).then(([sp, ie, nw, ba, tr, sk, py, hm, cf, sf, nwf]) => {
             setSpending(sp);
             setIncVsExp(ie);
             setNetWorth(nw);
@@ -131,6 +155,9 @@ export default function Reports() {
             setSankeyData(sk && sk.links && sk.links.length > 0 ? sk : null);
             setPayees(py);
             setHeatmap(hm);
+            setCashflowForecast(cf);
+            setSpendingForecast(sf);
+            setNetWorthForecast(nwf);
             setLoading(false);
         }).catch(() => setLoading(false));
     }, [currentMonth]);
@@ -152,17 +179,51 @@ export default function Reports() {
                     <p className="text-muted-foreground">Analyze spending behavior, cash flow, and long-term momentum.</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                            const a = document.createElement('a');
-                            a.href = getExportTransactionsUrl();
-                            a.click();
-                        }}
-                    >
-                        <Download className="mr-2 h-4 w-4" /> Export CSV
-                    </Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm">
+                                <Download className="mr-2 h-4 w-4" /> Export <ChevronDown className="ml-1 h-3 w-3" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                                disabled={exporting === 'csv'}
+                                onClick={async () => {
+                                    setExporting('csv');
+                                    try { await downloadTransactionsCSV(); } finally { setExporting(null); }
+                                }}
+                            >
+                                <FileSpreadsheet className="mr-2 h-4 w-4" /> Transactions CSV
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                disabled={exporting === 'txn-pdf'}
+                                onClick={async () => {
+                                    setExporting('txn-pdf');
+                                    try { await downloadTransactionsPDF(); } finally { setExporting(null); }
+                                }}
+                            >
+                                <FileText className="mr-2 h-4 w-4" /> Transactions PDF
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                disabled={exporting === 'budget-pdf'}
+                                onClick={async () => {
+                                    setExporting('budget-pdf');
+                                    try { await downloadBudgetPDF(currentMonth); } finally { setExporting(null); }
+                                }}
+                            >
+                                <FileText className="mr-2 h-4 w-4" /> Budget PDF
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                disabled={exporting === 'nw-pdf'}
+                                onClick={async () => {
+                                    setExporting('nw-pdf');
+                                    try { await downloadNetWorthPDF(); } finally { setExporting(null); }
+                                }}
+                            >
+                                <FileText className="mr-2 h-4 w-4" /> Net Worth PDF
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                     <Button size="sm" onClick={() => navigate('/ai')}>
                         <Bot className="mr-2 h-4 w-4" /> AI Advisor
                     </Button>
@@ -517,6 +578,164 @@ export default function Reports() {
                         )}
                     </CardContent>
                 </Card>
+
+                {/* Cashflow Forecast */}
+                {cashflowForecast && cashflowForecast.historical && (
+                    <Card className="col-span-1 overflow-hidden bg-gradient-to-br from-card to-secondary/25 lg:col-span-2">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="flex items-center gap-2 text-lg font-bold text-card-foreground">
+                                <Telescope className="h-5 w-5 text-primary" />
+                                Cash Flow Forecast
+                            </CardTitle>
+                            <CardDescription className="text-muted-foreground">
+                                Historical trends and projected income &amp; expenses
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-4">
+                            <div className="h-[360px] w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart
+                                        data={[
+                                            ...cashflowForecast.historical.map(d => ({ ...d, type: 'historical' })),
+                                            ...cashflowForecast.forecast.map(d => ({ ...d, type: 'forecast', income_forecast: d.income, expense_forecast: d.expenses }))
+                                        ]}
+                                        margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                                    >
+                                        <defs>
+                                            <linearGradient id="incomeGrad" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
+                                                <stop offset="95%" stopColor="#22c55e" stopOpacity={0.03} />
+                                            </linearGradient>
+                                            <linearGradient id="expenseGrad" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3} />
+                                                <stop offset="95%" stopColor="#f43f5e" stopOpacity={0.03} />
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="4 4" stroke={GRID_COLOR} vertical={false} />
+                                        <XAxis dataKey="month" stroke={AXIS_COLOR} tick={{ fill: AXIS_COLOR, fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
+                                        <YAxis stroke={AXIS_COLOR} tick={{ fill: AXIS_COLOR, fontSize: 12 }} tickFormatter={fmtCompact} axisLine={false} tickLine={false} />
+                                        <Tooltip contentStyle={tooltipStyle} formatter={(val) => fmt(val)} itemStyle={tooltipItemStyle} />
+                                        <Legend wrapperStyle={legendStyle} />
+                                        <Area type="monotone" dataKey="income" stroke="#22c55e" fill="url(#incomeGrad)" strokeWidth={2} name="Income" />
+                                        <Area type="monotone" dataKey="expenses" stroke="#f43f5e" fill="url(#expenseGrad)" strokeWidth={2} name="Expenses" />
+                                        <Area type="monotone" dataKey="income_forecast" stroke="#22c55e" fill="none" strokeWidth={2} strokeDasharray="6 3" name="Income (forecast)" connectNulls={false} />
+                                        <Area type="monotone" dataKey="expense_forecast" stroke="#f43f5e" fill="none" strokeWidth={2} strokeDasharray="6 3" name="Expenses (forecast)" connectNulls={false} />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
+                            {cashflowForecast.averages && (
+                                <div className="mt-4 flex flex-wrap justify-center gap-6 text-sm">
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-3 w-3 rounded-full bg-emerald-500" />
+                                        <span className="text-muted-foreground">Avg Income:</span>
+                                        <span className="font-semibold text-foreground">{fmt(cashflowForecast.averages.avg_income)}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-3 w-3 rounded-full bg-rose-500" />
+                                        <span className="text-muted-foreground">Avg Expenses:</span>
+                                        <span className="font-semibold text-foreground">{fmt(cashflowForecast.averages.avg_expenses)}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-3 w-3 rounded-full bg-blue-500" />
+                                        <span className="text-muted-foreground">Avg Savings:</span>
+                                        <span className="font-semibold text-foreground">{fmt(cashflowForecast.averages.avg_savings)}</span>
+                                    </div>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Net Worth Forecast */}
+                {netWorthForecast && netWorthForecast.historical && (
+                    <Card className="col-span-1 overflow-hidden bg-gradient-to-br from-card to-secondary/25 lg:col-span-2">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="flex items-center gap-2 text-lg font-bold text-card-foreground">
+                                <TrendingUp className="h-5 w-5 text-primary" />
+                                Net Worth Projection
+                            </CardTitle>
+                            <CardDescription className="text-muted-foreground">
+                                Linear trend projection based on the last 12 months
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-4">
+                            <div className="h-[320px] w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart
+                                        data={[
+                                            ...netWorthForecast.historical.map(d => ({ month: d.month, net_worth: d.net_worth })),
+                                            ...netWorthForecast.forecast.map(d => ({ month: d.month, net_worth_forecast: d.net_worth }))
+                                        ]}
+                                        margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                                    >
+                                        <defs>
+                                            <linearGradient id="nwForecastGrad" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25} />
+                                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.03} />
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="4 4" stroke={GRID_COLOR} vertical={false} />
+                                        <XAxis dataKey="month" stroke={AXIS_COLOR} tick={{ fill: AXIS_COLOR, fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
+                                        <YAxis stroke={AXIS_COLOR} tick={{ fill: AXIS_COLOR, fontSize: 12 }} tickFormatter={fmtCompact} axisLine={false} tickLine={false} />
+                                        <Tooltip contentStyle={tooltipStyle} formatter={(val) => fmt(val)} itemStyle={tooltipItemStyle} />
+                                        <Legend wrapperStyle={legendStyle} />
+                                        <Area type="monotone" dataKey="net_worth" stroke="#0f9ea8" fill="url(#netWorthGrad)" strokeWidth={3} name="Net Worth" activeDot={{ r: 6, strokeWidth: 0 }} />
+                                        <Area type="monotone" dataKey="net_worth_forecast" stroke="#3b82f6" fill="url(#nwForecastGrad)" strokeWidth={2} strokeDasharray="6 3" name="Projected" activeDot={{ r: 5, strokeWidth: 0 }} />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
+                            {netWorthForecast.trend && (
+                                <div className="mt-4 flex justify-center gap-6 text-sm">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-muted-foreground">Monthly trend:</span>
+                                        <span className={`font-semibold ${netWorthForecast.trend.monthly_change >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                            {netWorthForecast.trend.monthly_change >= 0 ? '+' : ''}{fmt(netWorthForecast.trend.monthly_change)}/mo
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Spending Forecast by Category */}
+                {spendingForecast && spendingForecast.length > 0 && (
+                    <Card className="col-span-1 overflow-hidden bg-gradient-to-br from-card to-secondary/25 lg:col-span-2">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="flex items-center gap-2 text-lg font-bold text-card-foreground">
+                                <Activity className="h-5 w-5 text-primary" />
+                                Next Month Spending Forecast
+                            </CardTitle>
+                            <CardDescription className="text-muted-foreground">
+                                Predicted category spending based on historical patterns &amp; seasonality
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-4">
+                            <div className="w-full" style={{ height: Math.max(280, spendingForecast.length * 40) }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart
+                                        data={spendingForecast.slice(0, 15)}
+                                        layout="vertical"
+                                        barGap={2}
+                                        margin={{ top: 10, right: 30, left: 40, bottom: 5 }}
+                                    >
+                                        <CartesianGrid strokeDasharray="4 4" stroke={GRID_COLOR} horizontal={false} />
+                                        <XAxis type="number" stroke={AXIS_COLOR} tick={{ fill: AXIS_COLOR, fontSize: 12 }} tickFormatter={fmtCompact} axisLine={false} tickLine={false} />
+                                        <YAxis type="category" dataKey="category" stroke={AXIS_COLOR} tick={{ fill: AXIS_COLOR, fontSize: 13, fontWeight: 500 }} width={140} axisLine={false} tickLine={false} />
+                                        <Tooltip
+                                            contentStyle={tooltipStyle}
+                                            itemStyle={tooltipItemStyle}
+                                            formatter={(val, name) => [fmt(val), name]}
+                                        />
+                                        <Legend wrapperStyle={legendStyle} />
+                                        <Bar dataKey="monthly_average" fill="#0f9ea8" radius={[0, 4, 4, 0]} name="Monthly Avg" barSize={12} />
+                                        <Bar dataKey="predicted_next_month" fill="#8b5cf6" radius={[0, 4, 4, 0]} name="Predicted" barSize={12} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
             </div>
         </div>
     );

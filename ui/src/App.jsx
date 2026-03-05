@@ -1,10 +1,13 @@
-import { BrowserRouter, Routes, Route, NavLink, useLocation, Navigate } from 'react-router-dom';
-import { LayoutDashboard, Wallet, ArrowLeftRight, PiggyBank, BarChart3, Settings as SettingsIcon, Menu, X, RefreshCw, TrendingUp, LogOut, Sun, Moon, Target, Landmark, CalendarDays, Bot, Sparkles } from 'lucide-react';
-import { useState } from 'react';
+import { BrowserRouter, Routes, Route, NavLink, useLocation, Navigate, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, Wallet, ArrowLeftRight, PiggyBank, BarChart3, Settings as SettingsIcon, Menu, X, RefreshCw, TrendingUp, LogOut, Sun, Moon, Target, Landmark, CalendarDays, Bot, Sparkles, Plus, Keyboard } from 'lucide-react';
+import { useState, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { SettingsProvider } from './hooks/useSettings.jsx';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import { useTheme } from './components/ThemeProvider.jsx';
+import { useKeyboardShortcuts, SHORTCUT_MAP } from './hooks/useKeyboardShortcuts.jsx';
+import QuickEntry from './components/QuickEntry.jsx';
+import OnboardingCoach from './components/OnboardingCoach.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Budget from './pages/Budget.jsx';
 import Accounts from './pages/Accounts.jsx';
@@ -24,6 +27,7 @@ import ResetPassword from './pages/ResetPassword.jsx';
 import Rules from './pages/Rules.jsx';
 import { Button } from './components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from './components/ui/avatar';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './components/ui/dialog';
 import { cn } from './lib/utils.js';
 
 const MAIN_NAV = [
@@ -128,11 +132,27 @@ const PAGE_TITLES = {
 
 function ProtectedLayout() {
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [quickEntryOpen, setQuickEntryOpen] = useState(false);
+    const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
     const location = useLocation();
+    const navigate = useNavigate();
     const { user, loading } = useAuth();
     const { theme, setTheme } = useTheme();
     const pageTitle = PAGE_TITLES[location.pathname] || 'Oasis';
     const todayLabel = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+    // Global keyboard shortcuts
+    useKeyboardShortcuts({
+        'ctrl+n': () => setQuickEntryOpen(true),
+        'ctrl+shift+t': () => navigate('/transactions'),
+        'ctrl+shift+b': () => navigate('/budget'),
+        'ctrl+shift+a': () => navigate('/accounts'),
+        'ctrl+shift+r': () => navigate('/reports'),
+        'ctrl+shift+s': () => navigate('/settings'),
+        'ctrl+shift+d': () => navigate('/'),
+        'ctrl+/': () => setShortcutsHelpOpen(true),
+        'escape': () => { setQuickEntryOpen(false); setShortcutsHelpOpen(false); }
+    });
 
     if (loading) {
         return <div className="flex h-screen items-center justify-center text-card-foreground">Loading...</div>;
@@ -221,6 +241,49 @@ function ProtectedLayout() {
                     </AnimatePresence>
                 </main>
             </div>
+
+            {/* Quick Entry FAB */}
+            <button
+                onClick={() => setQuickEntryOpen(true)}
+                className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-cyan-900/30 hover:shadow-xl hover:-translate-y-0.5 transition-all active:scale-95"
+                title="Quick Add (Ctrl+N)"
+            >
+                <Plus className="h-6 w-6" />
+            </button>
+
+            <QuickEntry open={quickEntryOpen} onOpenChange={setQuickEntryOpen} />
+            <OnboardingCoach />
+
+            {/* Keyboard Shortcuts Help Dialog */}
+            <Dialog open={shortcutsHelpOpen} onOpenChange={setShortcutsHelpOpen}>
+                <DialogContent className="sm:max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Keyboard className="h-5 w-5" />
+                            Keyboard Shortcuts
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                        {Object.entries(
+                            Object.entries(SHORTCUT_MAP).reduce((acc, [key, val]) => {
+                                if (!acc[val.section]) acc[val.section] = [];
+                                acc[val.section].push({ key, ...val });
+                                return acc;
+                            }, {})
+                        ).map(([section, shortcuts]) => (
+                            <div key={section}>
+                                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">{section}</p>
+                                {shortcuts.map(s => (
+                                    <div key={s.key} className="flex items-center justify-between py-1">
+                                        <span className="text-sm">{s.label}</span>
+                                        <kbd className="text-xs px-2 py-0.5 rounded bg-muted font-mono">{s.key}</kbd>
+                                    </div>
+                                ))}
+                            </div>
+                        ))}
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

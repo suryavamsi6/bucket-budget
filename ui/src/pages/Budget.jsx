@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Copy, ArrowLeftRight, Layers, Settings, Trash2 } from 'lucide-react';
-import { getBudget, getBudgetSummary, assignBudget, createCategoryGroup, createCategory, updateCategory, deleteCategory, deleteCategoryGroup, copyBudget, moveMoney, getSettings, updateSettings } from '../api/client.js';
+import { ChevronLeft, ChevronRight, Plus, Copy, ArrowLeftRight, Layers, Settings, Trash2, CreditCard, Banknote, Zap } from 'lucide-react';
+import { getBudget, getBudgetSummary, assignBudget, createCategoryGroup, createCategory, updateCategory, deleteCategory, deleteCategoryGroup, copyBudget, moveMoney, getSettings, updateSettings, getFundingTemplates, applyFundingTemplate } from '../api/client.js';
 import { useSettings } from '../hooks/useSettings.jsx';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -27,6 +27,10 @@ export default function Budget() {
     const [showTemplateModal, setShowTemplateModal] = useState(false);
     const [replaceSettings, setReplaceSettings] = useState(false);
     const [customTemplates, setCustomTemplates] = useState([]);
+    const [fundingTemplates, setFundingTemplates] = useState([]);
+    const [showFundingModal, setShowFundingModal] = useState(false);
+    const [fundingAmount, setFundingAmount] = useState('');
+    const [selectedFundingTemplate, setSelectedFundingTemplate] = useState('');
 
     const fetchCustomTemplates = useCallback(async () => {
         try {
@@ -46,6 +50,30 @@ export default function Budget() {
             fetchCustomTemplates();
         }
     }, [showTemplateModal, fetchCustomTemplates]);
+
+    useEffect(() => {
+        if (showFundingModal) {
+            getFundingTemplates().then(setFundingTemplates).catch(() => setFundingTemplates([]));
+        }
+    }, [showFundingModal]);
+
+    const handleApplyFunding = async () => {
+        if (!selectedFundingTemplate || !fundingAmount) return;
+        try {
+            const result = await applyFundingTemplate(parseInt(selectedFundingTemplate), {
+                month,
+                income_amount: parseFloat(fundingAmount)
+            });
+            setShowFundingModal(false);
+            setFundingAmount('');
+            setSelectedFundingTemplate('');
+            setToast(`Funded ${result.applied} categories from paycheck!`);
+            setTimeout(() => setToast(null), 3000);
+            loadData();
+        } catch (e) {
+            alert(e.message);
+        }
+    };
 
     const BUDGET_TEMPLATES = [
         {
@@ -272,6 +300,9 @@ export default function Budget() {
                         <Button variant="outline" className="bg-card border-border text-muted-foreground hover:bg-secondary hover:text-foreground" onClick={handleCopyLastMonth} title="Copy allocations from previous month">
                             <Copy className="mr-2 h-4 w-4" /> Copy Previous
                         </Button>
+                        <Button variant="outline" className="bg-card border-border text-muted-foreground hover:bg-secondary hover:text-foreground" onClick={() => setShowFundingModal(true)} title="Apply paycheck funding template">
+                            <Banknote className="mr-2 h-4 w-4" /> Paycheck
+                        </Button>
                         <Button variant="outline" className="bg-card border-border text-muted-foreground hover:bg-secondary hover:text-foreground" onClick={() => setShowTemplateModal(true)}>
                             <Layers className="mr-2 h-4 w-4" /> Templates
                         </Button>
@@ -376,9 +407,16 @@ export default function Budget() {
                                             }}
                                         >
                                             <div className="flex flex-col">
-                                                <span className="font-medium text-muted-foreground group-hover:text-foreground transition-colors">
-                                                    {cat.name}
-                                                </span>
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="font-medium text-muted-foreground group-hover:text-foreground transition-colors">
+                                                        {cat.name}
+                                                    </span>
+                                                    {cat.is_cc_payment && (
+                                                        <span className="inline-flex items-center gap-0.5 rounded-full bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-violet-600 dark:text-violet-400" title="Auto-funded from CC spending">
+                                                            <CreditCard className="h-2.5 w-2.5" /> CC
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 {cat.rollover_strategy && cat.rollover_strategy !== 'none' && (
                                                     <span className="text-[10px] text-primary/70 uppercase">
                                                         {cat.rollover_strategy === 'rollover' ? '🔄 Rollover' : '🧹 Sweep'}
@@ -961,6 +999,61 @@ export default function Budget() {
                         </div>
 
                     </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Paycheck Funding Modal */}
+            <Dialog open={showFundingModal} onOpenChange={setShowFundingModal}>
+                <DialogContent className="sm:max-w-[425px] bg-background border-border text-foreground/80">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-lg text-card-foreground">
+                            <Banknote className="h-5 w-5 text-primary" /> Apply Paycheck Funding
+                        </DialogTitle>
+                        <DialogDescription className="text-muted-foreground">
+                            Select a funding template and enter your paycheck amount to auto-distribute across budget categories.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-2">
+                        <div className="space-y-2">
+                            <Label className="text-muted-foreground text-xs uppercase tracking-wider">Funding Template</Label>
+                            <Select value={selectedFundingTemplate} onValueChange={setSelectedFundingTemplate}>
+                                <SelectTrigger className="bg-card border-border text-card-foreground">
+                                    <SelectValue placeholder="Select a template..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {fundingTemplates.map(t => (
+                                        <SelectItem key={t.id} value={t.id.toString()}>{t.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {fundingTemplates.length === 0 && (
+                                <p className="text-xs text-muted-foreground">No funding templates found. Create one in Settings.</p>
+                            )}
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-muted-foreground text-xs uppercase tracking-wider">Paycheck Amount</Label>
+                            <Input
+                                type="number"
+                                step="0.01"
+                                className="bg-card border-border text-card-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
+                                value={fundingAmount}
+                                onChange={e => setFundingAmount(e.target.value)}
+                                placeholder="e.g., 3000.00"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter className="pt-4 border-t border-border">
+                        <Button type="button" variant="ghost" className="text-muted-foreground hover:text-foreground hover:bg-secondary" onClick={() => setShowFundingModal(false)}>
+                            Cancel
+                        </Button>
+                        <Button
+                            className="bg-primary text-primary-foreground hover:bg-primary/90"
+                            disabled={!selectedFundingTemplate || !fundingAmount}
+                            onClick={handleApplyFunding}
+                        >
+                            <Zap className="mr-2 h-4 w-4" /> Apply Funding
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>

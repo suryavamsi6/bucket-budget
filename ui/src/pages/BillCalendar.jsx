@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { CalendarDays, ChevronLeft, ChevronRight, CreditCard, Repeat } from 'lucide-react';
-import { getSubscriptions } from '../api/client.js';
+import { CalendarDays, ChevronLeft, ChevronRight, CreditCard, Repeat, Clock, AlertCircle } from 'lucide-react';
+import { getSubscriptions, getUpcomingBills } from '../api/client.js';
 import { useSettings } from '../hooks/useSettings.jsx';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -8,6 +8,7 @@ import { Button } from '../components/ui/button';
 export default function BillCalendar() {
     const { fmt, settings } = useSettings();
     const [subs, setSubs] = useState([]);
+    const [upcoming, setUpcoming] = useState(null);
     const [loading, setLoading] = useState(true);
     const [currentDate, setCurrentDate] = useState(new Date());
 
@@ -17,7 +18,14 @@ export default function BillCalendar() {
 
     const loadData = async () => {
         setLoading(true);
-        try { setSubs(await getSubscriptions()); } catch (e) { console.error(e); }
+        try {
+            const [subsData, upcomingData] = await Promise.all([
+                getSubscriptions(),
+                getUpcomingBills(60).catch(() => null)
+            ]);
+            setSubs(subsData);
+            setUpcoming(upcomingData);
+        } catch (e) { console.error(e); }
         setLoading(false);
     };
 
@@ -47,11 +55,27 @@ export default function BillCalendar() {
             }
             if (day && day >= 1 && day <= daysInMonth) {
                 if (!map[day]) map[day] = [];
-                map[day].push(sub);
+                map[day].push({ ...sub, source: 'subscription' });
+            }
+        }
+        // Overlay projected recurring transactions
+        if (upcoming && upcoming.projected) {
+            for (const proj of upcoming.projected) {
+                const d = new Date(proj.projected_date);
+                if (d.getMonth() === month && d.getFullYear() === year) {
+                    const day = d.getDate();
+                    // Don't duplicate if subscription already has it
+                    const existing = map[day] || [];
+                    const alreadyShown = existing.some(e => e.name === proj.payee || e.payee === proj.payee);
+                    if (!alreadyShown) {
+                        if (!map[day]) map[day] = [];
+                        map[day].push({ name: proj.payee, amount: proj.amount, frequency: proj.frequency, source: 'recurring', projected_date: proj.projected_date });
+                    }
+                }
             }
         }
         return map;
-    }, [subs, month, year, daysInMonth]);
+    }, [subs, month, year, daysInMonth, upcoming]);
 
     const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
     const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
@@ -136,7 +160,7 @@ export default function BillCalendar() {
                                                 </div>
                                                 <div className="space-y-0.5">
                                                     {(billsByDay[day] || []).map((sub, j) => (
-                                                        <div key={j} className="text-[9px] bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded-md truncate font-medium" title={`${sub.name} — ${fmt(Math.abs(sub.amount))}`}>
+                                                        <div key={j} className={`text-[9px] px-1.5 py-0.5 rounded-md truncate font-medium ${sub.source === 'recurring' ? 'bg-blue-500/10 text-blue-500' : 'bg-amber-500/10 text-amber-500'}`} title={`${sub.name} — ${fmt(Math.abs(sub.amount))}${sub.source === 'recurring' ? ' (projected)' : ''}`}>
                                                             {sub.name}
                                                         </div>
                                                     ))}
@@ -162,9 +186,16 @@ export default function BillCalendar() {
                             bills.map((sub, i) => (
                                 <div key={`${day}-${i}`} className="flex items-center justify-between py-2 px-3 rounded-xl hover:bg-muted/30 transition-colors">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 bg-amber-500/10 rounded-lg flex items-center justify-center text-xs font-bold text-amber-500">{day}</div>
+                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${sub.source === 'recurring' ? 'bg-blue-500/10 text-blue-500' : 'bg-amber-500/10 text-amber-500'}`}>{day}</div>
                                         <div>
-                                            <div className="text-sm font-medium text-foreground/80">{sub.name}</div>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="text-sm font-medium text-foreground/80">{sub.name}</span>
+                                                {sub.source === 'recurring' && (
+                                                    <span className="inline-flex items-center rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-medium text-blue-500">
+                                                        <Clock className="mr-0.5 h-2 w-2" /> projected
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div className="text-[10px] text-muted-foreground flex items-center gap-1"><Repeat className="w-2.5 h-2.5" />{sub.frequency}</div>
                                         </div>
                                     </div>
@@ -172,6 +203,54 @@ export default function BillCalendar() {
                                 </div>
                             ))
                         )}
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* 60-Day Upcoming Timeline */}
+            {upcoming && upcoming.projected && upcoming.projected.length > 0 && (
+                <Card className="bg-card border-border">
+                    <CardHeader className="pb-3">
+                        <CardTitle className="flex items-center gap-2 text-base text-card-foreground">
+                            <Clock className="h-4 w-4 text-primary" />
+                            Next 60 Days — Projected Bills
+                        </CardTitle>
+                        <CardDescription className="text-muted-foreground text-xs">
+                            {upcoming.projected.length} projected transactions totaling {fmt(upcoming.total_projected)}
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-1.5">
+                        {upcoming.projected
+                            .sort((a, b) => a.projected_date.localeCompare(b.projected_date))
+                            .map((proj, i) => {
+                                const projDate = new Date(proj.projected_date);
+                                const daysUntil = Math.ceil((projDate - today) / (1000 * 60 * 60 * 24));
+                                const isPast = daysUntil < 0;
+                                const isSoon = daysUntil >= 0 && daysUntil <= 3;
+                                return (
+                                    <div key={i} className={`flex items-center justify-between py-2 px-3 rounded-xl transition-colors ${isPast ? 'opacity-50' : 'hover:bg-muted/30'}`}>
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center text-xs font-bold ${isSoon ? 'bg-amber-500/10 text-amber-500' : 'bg-muted/50 text-muted-foreground'}`}>
+                                                <span className="text-[9px] uppercase">{projDate.toLocaleDateString('en-US', { month: 'short' })}</span>
+                                                <span className="text-sm -mt-0.5">{projDate.getDate()}</span>
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="text-sm font-medium text-foreground/80">{proj.payee}</span>
+                                                    {isSoon && (
+                                                        <AlertCircle className="h-3 w-3 text-amber-500" title="Due soon" />
+                                                    )}
+                                                </div>
+                                                <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                                    <Repeat className="w-2.5 h-2.5" />{proj.frequency}
+                                                    {daysUntil >= 0 && <span className="ml-1">• in {daysUntil} day{daysUntil !== 1 ? 's' : ''}</span>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <span className="font-mono font-semibold text-sm text-foreground/80">{fmt(Math.abs(proj.amount))}</span>
+                                    </div>
+                                );
+                            })}
                     </CardContent>
                 </Card>
             )}

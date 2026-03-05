@@ -4,7 +4,7 @@ import authenticate from '../middleware/auth.js';
 export default async function budgetRoutes(fastify) {
     fastify.addHook('preHandler', authenticate);
 
-    // Get budget for a specific month
+    // Get budget for a specific month (includes splits + CC payment tracking)
     fastify.get('/:month', async (request) => {
         const { month } = request.params; // YYYY-MM
         const userId = request.user.id;
@@ -17,20 +17,61 @@ export default async function budgetRoutes(fastify) {
         const startDate = `${month}-01`;
         const endDate = `${month}-31`;
 
-        const activity = await db('transactions')
+        // Direct category activity (non-split transactions)
+        const directActivity = await db('transactions')
             .select('category_id')
             .sum('amount as total')
             .where('user_id', userId)
             .where('date', '>=', startDate)
             .where('date', '<=', endDate)
             .whereNotNull('category_id')
+            .where('is_split', false)
             .groupBy('category_id');
 
+        // Split transaction activity (through transaction_splits)
+        const splitActivity = await db('transaction_splits')
+            .select('transaction_splits.category_id')
+            .sum('transaction_splits.amount as total')
+            .join('transactions', 'transaction_splits.transaction_id', 'transactions.id')
+            .where('transactions.user_id', userId)
+            .where('transactions.date', '>=', startDate)
+            .where('transactions.date', '<=', endDate)
+            .whereNotNull('transaction_splits.category_id')
+            .groupBy('transaction_splits.category_id');
+
         const activityMap = {};
-        activity.forEach(a => { activityMap[a.category_id] = a.total || 0; });
+        directActivity.forEach(a => { activityMap[a.category_id] = (activityMap[a.category_id] || 0) + (a.total || 0); });
+        splitActivity.forEach(a => { activityMap[a.category_id] = (activityMap[a.category_id] || 0) + (a.total || 0); });
 
         const allocationMap = {};
         allocations.forEach(a => { allocationMap[a.category_id] = a.assigned || 0; });
+
+        // CC payment auto-budget: for tracked CC accounts, auto-add on-budget spending to CC payment category
+        const ccLinks = await db('cc_payment_categories')
+            .select('cc_payment_categories.*', 'accounts.user_id')
+            .join('accounts', 'cc_payment_categories.account_id', 'accounts.id')
+            .where('accounts.user_id', userId);
+
+        for (const ccLink of ccLinks) {
+            // Sum of on-budget spending on this CC in this month
+            const ccSpending = await db('transactions')
+                .where({ account_id: ccLink.account_id, user_id: userId })
+                .where('amount', '<', 0)
+                .where('date', '>=', startDate)
+                .where('date', '<=', endDate)
+                .whereNotNull('category_id')
+                .sum('amount as total')
+                .first();
+
+            // Add the absolute value of CC spending as "auto-assigned" to the CC payment category
+            const autoAssigned = Math.abs(parseFloat(ccSpending?.total || 0));
+            if (autoAssigned > 0) {
+                activityMap[ccLink.category_id] = (activityMap[ccLink.category_id] || 0);
+                // The CC payment category's "available" should reflect what's needed to pay the CC
+                // We add automobile to the allocation map as auto-budgeted amount
+                allocationMap[ccLink.category_id] = (allocationMap[ccLink.category_id] || 0) + autoAssigned;
+            }
+        }
 
         // Calculate available = all prior months' (assigned + activity) + this month's assigned + this month's activity
         const priorAvailable = await calculatePriorAvailable(month, userId);
@@ -44,12 +85,14 @@ export default async function budgetRoutes(fastify) {
                     const act = activityMap[cat.id] || 0;
                     const prior = priorAvailable[cat.id] || 0;
                     const available = prior + assigned + act;
+                    const isCCPayment = ccLinks.some(cc => cc.category_id === cat.id);
                     return {
                         ...cat,
                         assigned,
                         activity: act,
                         available,
-                        goal_progress: cat.goal_amount ? Math.min(100, (available / cat.goal_amount) * 100) : null
+                        goal_progress: cat.goal_amount ? Math.min(100, (available / cat.goal_amount) * 100) : null,
+                        is_cc_payment: isCCPayment
                     };
                 })
         }));
@@ -174,10 +217,20 @@ async function calculatePriorAvailable(currentMonth, userId) {
         .where('user_id', userId)
         .where('month', '<', currentMonth);
 
+    // Direct (non-split) transactions
     const allTransactions = await db('transactions')
         .where('user_id', userId)
         .where('date', '<', `${currentMonth}-01`)
+        .where('is_split', false)
         .whereNotNull('category_id');
+
+    // Split transaction activity
+    const allSplitActivity = await db('transaction_splits')
+        .select('transaction_splits.category_id', 'transaction_splits.amount', 'transactions.date')
+        .join('transactions', 'transaction_splits.transaction_id', 'transactions.id')
+        .where('transactions.user_id', userId)
+        .where('transactions.date', '<', `${currentMonth}-01`)
+        .whereNotNull('transaction_splits.category_id');
 
     // Group by month
     const timeline = {}; // 'YYYY-MM' -> { categoryId -> { assigned, activity } }
@@ -193,6 +246,13 @@ async function calculatePriorAvailable(currentMonth, userId) {
         if (!timeline[month]) timeline[month] = {};
         if (!timeline[month][t.category_id]) timeline[month][t.category_id] = { assigned: 0, activity: 0 };
         timeline[month][t.category_id].activity += t.amount;
+    });
+
+    allSplitActivity.forEach(s => {
+        const month = s.date.substring(0, 7);
+        if (!timeline[month]) timeline[month] = {};
+        if (!timeline[month][s.category_id]) timeline[month][s.category_id] = { assigned: 0, activity: 0 };
+        timeline[month][s.category_id].activity += s.amount;
     });
 
     const months = Object.keys(timeline).sort();

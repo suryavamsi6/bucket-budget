@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Wallet, CreditCard, PiggyBank, Landmark, Banknote, CheckSquare } from 'lucide-react';
-import { getAccounts, createAccount, updateAccount, deleteAccount, reconcileAccount } from '../api/client.js';
+import { Plus, Edit, Trash2, Wallet, CreditCard, PiggyBank, Landmark, Banknote, CheckSquare, ShieldCheck } from 'lucide-react';
+import { getAccounts, createAccount, updateAccount, deleteAccount, reconcileAccountEnhanced, getCCPaymentInfo } from '../api/client.js';
 import { useSettings } from '../hooks/useSettings.jsx';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -31,8 +31,9 @@ export default function Accounts() {
     const [showReconcile, setShowReconcile] = useState(null);
     const [reconcileBalance, setReconcileBalance] = useState('');
     const [editing, setEditing] = useState(null);
-    const [form, setForm] = useState({ name: '', type: 'checking', balance: '', on_budget: true });
+    const [form, setForm] = useState({ name: '', type: 'checking', balance: '', on_budget: true, is_credit_card_tracking: false });
     const [toast, setToast] = useState(null);
+    const [ccInfo, setCcInfo] = useState({});
 
     const loadAccounts = async () => {
         const data = await getAccounts();
@@ -43,22 +44,28 @@ export default function Accounts() {
 
     const openCreate = () => {
         setEditing(null);
-        setForm({ name: '', type: 'checking', balance: '', on_budget: true });
+        setForm({ name: '', type: 'checking', balance: '', on_budget: true, is_credit_card_tracking: false });
         setShowModal(true);
     };
 
     const openEdit = (acc) => {
         setEditing(acc);
-        setForm({ name: acc.name, type: acc.type, balance: acc.balance, on_budget: acc.on_budget });
+        setForm({ name: acc.name, type: acc.type, balance: acc.balance, on_budget: acc.on_budget, is_credit_card_tracking: !!acc.is_credit_card_tracking });
         setShowModal(true);
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (editing) {
-            await updateAccount(editing.id, { name: form.name, type: form.type, on_budget: form.on_budget });
+            await updateAccount(editing.id, {
+                name: form.name, type: form.type, on_budget: form.on_budget,
+                is_credit_card_tracking: form.is_credit_card_tracking
+            });
         } else {
-            await createAccount({ ...form, balance: parseFloat(form.balance) || 0 });
+            await createAccount({
+                ...form, balance: parseFloat(form.balance) || 0,
+                is_credit_card_tracking: form.type === 'credit_card' && form.is_credit_card_tracking
+            });
         }
         setShowModal(false);
         loadAccounts();
@@ -73,10 +80,13 @@ export default function Accounts() {
 
     const handleReconcile = async () => {
         if (!showReconcile || reconcileBalance === '') return;
-        const result = await reconcileAccount(showReconcile.id, parseFloat(reconcileBalance));
+        const result = await reconcileAccountEnhanced(showReconcile.id, { balance: parseFloat(reconcileBalance) });
         setShowReconcile(null);
         setReconcileBalance('');
-        setToast(`Account reconciled! ${result.adjustment !== 0 ? `Adjustment: ${fmt(result.adjustment)}` : 'No adjustment needed.'}`);
+        const msg = result.reconciled_count
+            ? `Reconciled ${result.reconciled_count} transactions!${result.adjustment !== 0 ? ` Adjustment: ${fmt(result.adjustment)}` : ''}`
+            : `Account reconciled! ${result.adjustment !== 0 ? `Adjustment: ${fmt(result.adjustment)}` : 'No adjustment needed.'}`;
+        setToast(msg);
         setTimeout(() => setToast(null), 4000);
         loadAccounts();
     };
@@ -130,6 +140,19 @@ export default function Accounts() {
                                             <div className={`font-mono text-lg font-bold ${parseFloat(acc.balance) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                                 {fmt(acc.balance)}
                                             </div>
+                                            {(acc.cleared_balance != null || acc.uncleared_balance != null) && (
+                                                <div className="flex gap-2 text-[10px] text-muted-foreground">
+                                                    <span title="Cleared">{fmt(acc.cleared_balance || 0)} cleared</span>
+                                                    {parseFloat(acc.uncleared_balance || 0) !== 0 && (
+                                                        <span title="Uncleared" className="text-yellow-500">{fmt(acc.uncleared_balance)} pending</span>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {acc.is_credit_card_tracking && (
+                                                <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-500">
+                                                    <ShieldCheck className="h-3 w-3" />CC Tracking
+                                                </span>
+                                            )}
                                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => { setShowReconcile(acc); setReconcileBalance(acc.balance); }} title="Reconcile">
                                                     <CheckSquare className="h-4 w-4" />
@@ -272,6 +295,24 @@ export default function Accounts() {
                                 Include in Budget
                             </Label>
                         </div>
+
+                        {form.type === 'credit_card' && (
+                            <div className="flex items-center space-x-2 pt-1">
+                                <input
+                                    type="checkbox"
+                                    id="cc_tracking"
+                                    className="h-4 w-4 rounded border-border bg-card text-primary focus:ring-primary focus:ring-offset-slate-950"
+                                    checked={form.is_credit_card_tracking}
+                                    onChange={e => setForm({ ...form, is_credit_card_tracking: e.target.checked })}
+                                />
+                                <Label htmlFor="cc_tracking" className="text-sm font-medium leading-none text-muted-foreground">
+                                    Enable YNAB-style CC Payment Tracking
+                                    <span className="block text-[10px] text-muted-foreground/70 font-normal mt-0.5">
+                                        Auto-creates a CC Payment category that tracks spending for this card
+                                    </span>
+                                </Label>
+                            </div>
+                        )}
 
                         <DialogFooter className="pt-4 border-t border-border">
                             <Button type="button" variant="ghost" className="text-muted-foreground hover:text-foreground hover:bg-secondary" onClick={() => setShowModal(false)}>

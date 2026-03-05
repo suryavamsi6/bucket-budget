@@ -22,6 +22,8 @@ import insightRoutes from './routes/insights.js';
 import exportRoutes from './routes/export.js';
 import aiRoutes from './routes/ai.js';
 import ruleRoutes from './routes/rules.js';
+import fundingRoutes from './routes/funding.js';
+import splitTemplateRoutes from './routes/splitTemplates.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -52,6 +54,8 @@ app.register(insightRoutes, { prefix: '/api/insights' });
 app.register(exportRoutes, { prefix: '/api/export' });
 app.register(aiRoutes, { prefix: '/api/ai' });
 app.register(ruleRoutes, { prefix: '/api/rules' });
+app.register(fundingRoutes, { prefix: '/api/funding-templates' });
+app.register(splitTemplateRoutes, { prefix: '/api/split-templates' });
 
 // Serve static frontend in production
 const uiDistPath = join(__dirname, '../../ui/dist');

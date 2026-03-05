@@ -162,6 +162,8 @@ function ProtectedLayout() {
                                 size="icon"
                                 className="rounded-xl text-muted-foreground hover:text-foreground md:hidden"
                                 onClick={() => setSidebarOpen(!sidebarOpen)}
+                                aria-expanded={sidebarOpen}
+                                aria-label="Toggle sidebar"
                             >
                                 {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
                             </Button>
@@ -177,6 +179,7 @@ function ProtectedLayout() {
                                 size="icon"
                                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
                                 className="rounded-xl text-muted-foreground hover:text-foreground"
+                                aria-label="Toggle theme"
                             >
                                 {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                             </Button>

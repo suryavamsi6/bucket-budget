@@ -579,7 +579,9 @@ export default async function transactionRoutes(fastify) {
 
         for await (const part of parts) {
             if (part.type === 'file') {
-                const uniqueFilename = `${randomUUID()}-${part.filename}`;
+                // Security: Sanitize filename to prevent Path Traversal
+                const safeFilename = path.basename(part.filename);
+                const uniqueFilename = `${randomUUID()}-${safeFilename}`;
                 const filePath = path.join(uploadDir, uniqueFilename);
                 const relativePath = path.join(request.user.id.toString(), uniqueFilename);
 
@@ -589,7 +591,7 @@ export default async function transactionRoutes(fastify) {
                 const [id] = await db('attachments').insert({
                     user_id: request.user.id,
                     transaction_id: tx.id,
-                    file_name: part.filename,
+                    file_name: safeFilename,
                     file_path: relativePath,
                     mime_type: part.mimetype,
                     size_bytes: buffer.length

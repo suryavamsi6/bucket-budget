@@ -2,24 +2,73 @@ import db from '../db/knex.js';
 import authenticate from '../middleware/auth.js';
 import { buildFinancialContext } from './export.js';
 
+function isValidBaseUrl(urlStr) {
+    if (!urlStr) return false;
+    try {
+        const url = new URL(urlStr);
+        // Only allow http and https
+        if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+            return false;
+        }
+        // Block well-known cloud metadata IPs (AWS, GCP, Azure, etc.)
+        const blockedHosts = ['169.254.169.254', '169.254.169.253', '[fd00:ec2::254]'];
+        if (blockedHosts.includes(url.hostname)) {
+            return false;
+        }
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
 export default async function aiRoutes(fastify) {
     fastify.addHook('preHandler', authenticate);
+
+    // Basic SSRF mitigation for user-provided URLs
+    const getSafeBaseUrl = (base_url, provider) => {
+        const baseUrl = base_url || (provider === 'ollama' ? 'http://localhost:11434' : 'http://localhost:1234');
+        try {
+            const parsedUrl = new URL(baseUrl);
+            // Block common internal service ports (e.g. 6379 Redis, 5432 Postgres, 3306 MySQL)
+            const blockedPorts = ['6379', '5432', '3306', '11211', '27017', '9200'];
+            const blockedHostnames = ['169.254.169.254', 'metadata.google.internal', '0.0.0.0'];
+            if (blockedHostnames.includes(parsedUrl.hostname) || blockedPorts.includes(parsedUrl.port)) {
+                throw new Error('For security reasons, the provided AI provider address or port is restricted.');
+            }
+            // Require explicit http/https protocols to prevent file:/// or other scheme abuses
+            if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+                throw new Error('Only HTTP and HTTPS protocols are supported.');
+            }
+            return baseUrl;
+        } catch (e) {
+            throw new Error(e.message || 'Invalid base_url');
+        }
+    };
 
     // List available models from provider
     fastify.get('/models', async (request, reply) => {
         const { provider = 'ollama', base_url } = request.query;
 
-        const baseUrl = base_url || (provider === 'ollama' ? 'http://localhost:11434' : 'http://localhost:1234');
+        let baseUrl;
+        try {
+            baseUrl = getSafeBaseUrl(base_url, provider);
+        } catch (e) {
+            return reply.code(400).send({ error: e.message });
+        }
+
+        if (!isValidBaseUrl(baseUrl)) {
+            return reply.code(400).send({ error: 'Invalid or blocked base_url provided' });
+        }
 
         try {
             if (provider === 'ollama') {
-                const resp = await fetch(`${baseUrl}/api/tags`);
+                const resp = await fetch(`${baseUrl}/api/tags`, { redirect: 'error' });
                 if (!resp.ok) throw new Error(`Ollama returned ${resp.status}`);
                 const data = await resp.json();
                 return { models: (data.models || []).map(m => ({ id: m.name, name: m.name, size: m.size })) };
             } else {
                 // LM Studio uses OpenAI-compatible API
-                const resp = await fetch(`${baseUrl}/v1/models`);
+                const resp = await fetch(`${baseUrl}/v1/models`, { redirect: 'error' });
                 if (!resp.ok) throw new Error(`LM Studio returned ${resp.status}`);
                 const data = await resp.json();
                 return { models: (data.data || []).map(m => ({ id: m.id, name: m.id })) };
@@ -44,7 +93,16 @@ export default async function aiRoutes(fastify) {
         const userId = request.user.id;
         const { messages, provider = 'ollama', base_url, model, include_context = true } = request.body;
 
-        const baseUrl = base_url || (provider === 'ollama' ? 'http://localhost:11434' : 'http://localhost:1234');
+        let baseUrl;
+        try {
+            baseUrl = getSafeBaseUrl(base_url, provider);
+        } catch (e) {
+            return reply.code(400).send({ error: e.message });
+        }
+
+        if (!isValidBaseUrl(baseUrl)) {
+            return reply.code(400).send({ error: 'Invalid or blocked base_url provided' });
+        }
 
         if (!messages || !messages.length) {
             return reply.code(400).send({ error: 'messages array is required' });
@@ -90,7 +148,8 @@ export default async function aiRoutes(fastify) {
                         messages: fullMessages,
                         stream: false
                     }),
-                    signal: controller.signal
+                    signal: controller.signal,
+                    redirect: 'error'
                 });
 
                 if (!resp.ok) {
@@ -111,7 +170,8 @@ export default async function aiRoutes(fastify) {
                         temperature: 0.7,
                         max_tokens: 2048
                     }),
-                    signal: controller.signal
+                    signal: controller.signal,
+                    redirect: 'error'
                 });
 
                 if (!resp.ok) {

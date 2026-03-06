@@ -154,13 +154,13 @@ export default function Accounts() {
                                                 </span>
                                             )}
                                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => { setShowReconcile(acc); setReconcileBalance(acc.balance); }} title="Reconcile">
+                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => { setShowReconcile(acc); setReconcileBalance(acc.balance); }} title="Reconcile" aria-label={`Reconcile ${acc.name}`}>
                                                     <CheckSquare className="h-4 w-4" />
                                                 </Button>
-                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-info" onClick={() => openEdit(acc)} title="Edit">
+                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-info" onClick={() => openEdit(acc)} title="Edit" aria-label={`Edit ${acc.name}`}>
                                                     <Edit className="h-4 w-4" />
                                                 </Button>
-                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(acc.id)} title="Delete">
+                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(acc.id)} title="Delete" aria-label={`Delete ${acc.name}`}>
                                                     <Trash2 className="h-4 w-4" />
                                                 </Button>
                                             </div>
@@ -196,13 +196,13 @@ export default function Accounts() {
                                                 {fmt(acc.balance)}
                                             </div>
                                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => { setShowReconcile(acc); setReconcileBalance(acc.balance); }} title="Reconcile">
+                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => { setShowReconcile(acc); setReconcileBalance(acc.balance); }} title="Reconcile" aria-label={`Reconcile ${acc.name}`}>
                                                     <CheckSquare className="h-3 w-3" />
                                                 </Button>
-                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-info" onClick={() => openEdit(acc)} title="Edit">
+                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-info" onClick={() => openEdit(acc)} title="Edit" aria-label={`Edit ${acc.name}`}>
                                                     <Edit className="h-3 w-3" />
                                                 </Button>
-                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(acc.id)} title="Delete">
+                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(acc.id)} title="Delete" aria-label={`Delete ${acc.name}`}>
                                                     <Trash2 className="h-3 w-3" />
                                                 </Button>
                                             </div>

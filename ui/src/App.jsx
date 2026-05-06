@@ -183,6 +183,8 @@ function ProtectedLayout() {
                             <Button
                                 variant="ghost"
                                 size="icon"
+                                aria-label="Toggle sidebar menu"
+                                aria-expanded={sidebarOpen}
                                 className="rounded-full text-muted-foreground hover:text-foreground md:hidden"
                                 onClick={() => setSidebarOpen(!sidebarOpen)}
                             >
@@ -198,6 +200,8 @@ function ProtectedLayout() {
                             <Button
                                 variant="ghost"
                                 size="icon"
+                                aria-label="Toggle theme"
+                                title="Toggle theme"
                                 onClick={() => {
                                     const currentIndex = appearanceCycle.indexOf(theme);
                                     const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % appearanceCycle.length : 0;
@@ -252,6 +256,8 @@ function ProtectedLayout() {
             {/* M3 FAB - Large, surface-container with primary icon */}
             <button
                 onClick={() => setQuickEntryOpen(true)}
+                aria-label="Quick Add"
+                aria-keyshortcuts="Control+N"
                 className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-container text-on-primary-container shadow-lg hover:shadow-xl transition-all active:scale-95"
                 title="Quick Add (Ctrl+N)"
             >

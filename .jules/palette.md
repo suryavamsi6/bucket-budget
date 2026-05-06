@@ -1,0 +1,3 @@
+## 2024-06-25 - ARIA attributes for stateful shell buttons
+**Learning:** In the app shell component (`App.jsx`), stateful icon-only toggles (like sidebar menus) require `aria-expanded` to reflect their open/closed state, and icon buttons mapped to keyboard shortcuts (like floating action buttons) benefit from `aria-keyshortcuts` to communicate the shortcut to screen readers, matching visual `title` attributes.
+**Action:** When creating new icon-only toggles or global action buttons, always ensure appropriate `aria-label`, `aria-expanded`, and `aria-keyshortcuts` attributes are included to maintain parity with visual cues.

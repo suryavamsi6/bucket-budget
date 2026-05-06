@@ -86,6 +86,10 @@ export default async function authRoutes(fastify) {
         }
     });
 
+    // A dummy hash to prevent timing attacks when checking invalid users
+    // Matches the cost factor used during registration
+    const DUMMY_HASH = '$2b$10$po0FBzsrMgP1HN3zH92ec.6wsc9oPbPZvrxv2b5x49IKAyR7YRv3m';
+
     fastify.post('/login', async (request, reply) => {
         try {
             // Frontend might send the identifier as 'email' or 'username'
@@ -99,7 +103,9 @@ export default async function authRoutes(fastify) {
             // Find user
             const user = await db('users').where('email', identifier).orWhere('username', identifier).first();
             if (!user) {
-                return reply.code(401).send({ error: 'Invalid credentials' });
+                // Prevent timing attacks by performing a dummy hash comparison
+                await bcrypt.compare(password, DUMMY_HASH);
+                return reply.code(401).send({ error: 'Invalid email or password' });
             }
 
             // Check password

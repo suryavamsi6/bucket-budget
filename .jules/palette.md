@@ -1,0 +1,3 @@
+## 2025-05-07 - Added ARIA Attributes to Main Navigation Buttons
+**Learning:** Found multiple icon-only buttons in the main navigation (Sidebar toggle, Theme toggle, Quick Add FAB) lacking explicit ARIA labels. State-dependent icons like the Sidebar toggle lacked `aria-expanded` attributes, and buttons with keyboard shortcuts like Quick Add FAB were missing `aria-keyshortcuts` which can cause screen readers to completely miss their purpose or available actions.
+**Action:** Always add `aria-label` to buttons without text content, use `aria-expanded` for stateful toggles (like sidebar), and add `aria-keyshortcuts` when assigning hotkeys for better screen reader accessibility.

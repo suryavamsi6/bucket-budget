@@ -6,6 +6,9 @@ import { getJwtSecret } from '../config/auth.js';
 
 const JWT_SECRET = getJwtSecret();
 
+// Dummy hash for constant-time comparison when user is not found to prevent timing attacks
+const DUMMY_HASH = '$2a$10$AD3VRgDvLZULV9xTET.DDuou3RMj52dJ0h8u3xgCji.mnn2CxX7Vy';
+
 export default async function authRoutes(fastify) {
     // Register User
     fastify.post('/register', async (request, reply) => {
@@ -99,7 +102,9 @@ export default async function authRoutes(fastify) {
             // Find user
             const user = await db('users').where('email', identifier).orWhere('username', identifier).first();
             if (!user) {
-                return reply.code(401).send({ error: 'Invalid credentials' });
+                // Constant-time dummy compare to mitigate user enumeration timing attacks
+                await bcrypt.compare(password, DUMMY_HASH);
+                return reply.code(401).send({ error: 'Invalid email or password' });
             }
 
             // Check password

@@ -7,6 +7,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
+import { escapeHtml } from '../lib/utils.js';
 
 const QUICK_PROMPTS = [
     { icon: '📊', label: 'Analyze my spending', prompt: 'Analyze my spending patterns. What are my top spending categories? Are there any areas where I could cut back?' },
@@ -171,14 +172,18 @@ export default function AiAdvisor() {
                                             ? 'bg-destructive/10 border border-destructive/20 text-destructive'
                                             : 'bg-surface-container/50 border border-outline-variant/30 text-card-foreground'
                                         }`}>
-                                        <div className="text-sm whitespace-pre-wrap leading-relaxed" dangerouslySetInnerHTML={{
-                                            __html: msg.role === 'assistant'
-                                                ? msg.content
+                                        {msg.role === 'assistant' ? (
+                                            <div className="text-sm whitespace-pre-wrap leading-relaxed" dangerouslySetInnerHTML={{
+                                                __html: escapeHtml(msg.content)
                                                     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                                                     .replace(/\n/g, '<br/>')
                                                     .replace(/^- /gm, '• ')
-                                                : msg.content
-                                        }} />
+                                            }} />
+                                        ) : (
+                                            <div className="text-sm whitespace-pre-wrap leading-relaxed">
+                                                {msg.content}
+                                            </div>
+                                        )}
                                         {msg.role === 'assistant' && !msg.error && (
                                             <button onClick={() => copyMessage(msg.content, i)}
                                                 className="mt-2 text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">

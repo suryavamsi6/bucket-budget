@@ -19,3 +19,8 @@
 **Vulnerability:** Found a Path Traversal vulnerability in the `api/src/routes/transactions.js` file upload endpoint for attachments. An attacker could potentially supply a filename with directory traversal characters (e.g., `../../../etc/passwd`) to escape the upload directory and write/read arbitrary files on the server.
 **Learning:** `path.join` combined with `part.filename` directly from the user can result in path traversal, even if the filename is prepended with a random UUID (e.g., `1234-../../../etc/passwd` resolves to `/etc/passwd`).
 **Prevention:** Always sanitize user-supplied filenames before using them in file system operations. `path.basename(filename)` is a simple way to extract just the file name and discard any directory components.
+
+## 2026-05-09 - XSS in AI Advisor Component
+**Vulnerability:** The `AiAdvisor` frontend component rendered AI assistant and user messages via `dangerouslySetInnerHTML` directly using `msg.content`. If any malicious payload was present in an AI response or inadvertently saved user message history, it would be executed.
+**Learning:** Custom regex-based markdown renderers coupled with `dangerouslySetInnerHTML` must always pre-sanitize the input using a utility like `escapeHtml` to prevent XSS in this codebase architecture.
+**Prevention:** Avoid `dangerouslySetInnerHTML` when possible. When rendering markdown-like formatting with regex, sanitize the raw string with `escapeHtml` *before* applying the regex replacement, and render plain text directly when formatting isn't needed.

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Bot, Send, Settings2, Loader2, Sparkles, RefreshCw, Copy, Check, Download, ChevronDown, Zap } from 'lucide-react';
 import { getAiModels, chatWithAi, getFinancialExport } from '../api/client.js';
+import { escapeHtml } from '../lib/utils.js';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -173,11 +174,11 @@ export default function AiAdvisor() {
                                         }`}>
                                         <div className="text-sm whitespace-pre-wrap leading-relaxed" dangerouslySetInnerHTML={{
                                             __html: msg.role === 'assistant'
-                                                ? msg.content
+                                                ? escapeHtml(msg.content)
                                                     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                                                     .replace(/\n/g, '<br/>')
                                                     .replace(/^- /gm, '• ')
-                                                : msg.content
+                                                : escapeHtml(msg.content)
                                         }} />
                                         {msg.role === 'assistant' && !msg.error && (
                                             <button onClick={() => copyMessage(msg.content, i)}

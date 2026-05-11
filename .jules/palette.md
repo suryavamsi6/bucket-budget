@@ -1,0 +1,3 @@
+## 2024-05-11 - Accessibility of stateful toggles and keyboard-bound actions
+**Learning:** In the UI, stateful icon-only toggles like the mobile sidebar menu must declare their open/closed state using `aria-expanded` alongside their `aria-label`. Furthermore, interactive elements that correspond to specific keyboard shortcuts (like floating action buttons) should document this for assistive technologies via `aria-keyshortcuts` to bridge the gap between visual hints and non-visual feedback.
+**Action:** Always include `aria-expanded` reflecting the current state on icon buttons that toggle visibility or panels, and append `aria-keyshortcuts` to interactive UI components that are explicitly tied to hotkeys (e.g., Quick Add).

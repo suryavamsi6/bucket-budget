@@ -1,0 +1,3 @@
+## 2024-05-15 - Icon-only Button Accessibility
+**Learning:** Icon-only interactive elements like sidebar toggles, theme switchers, and Floating Action Buttons often lack visible text, making them inaccessible to screen readers and difficult for users relying on keyboard navigation without proper attributes. State attributes are missing for interactive toggles.
+**Action:** Always verify icon-only buttons include `aria-label` to provide context. For buttons that toggle state (like a menu), include `aria-expanded`. For buttons linked to keyboard shortcuts (like the Quick Add FAB), include `aria-keyshortcuts` to aid discoverability.

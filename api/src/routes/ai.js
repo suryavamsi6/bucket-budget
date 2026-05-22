@@ -10,11 +10,32 @@ function isValidBaseUrl(urlStr) {
         if (url.protocol !== 'http:' && url.protocol !== 'https:') {
             return false;
         }
-        // Block well-known cloud metadata IPs (AWS, GCP, Azure, etc.)
-        const blockedHosts = ['169.254.169.254', '169.254.169.253', '[fd00:ec2::254]'];
-        if (blockedHosts.includes(url.hostname)) {
+
+        // Allow localhost for default AI ports
+        if (['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)) {
+            return url.port === '11434' || url.port === '1234';
+        }
+
+        const hn = url.hostname.toLowerCase();
+
+        // Block well-known cloud metadata IPs
+        const blockedHosts = ['169.254.169.254', '169.254.169.253', '[fd00:ec2::254]', 'metadata.google.internal'];
+        if (blockedHosts.includes(hn)) {
             return false;
         }
+
+        // Comprehensive isPrivateIP check
+        const parts = hn.split('.');
+        if (parts.length === 4 && parts.every(p => !isNaN(p))) {
+            const [a, b] = parts.map(Number);
+            if (a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || a === 127 || a === 0) {
+                return false;
+            }
+        }
+        if (hn.startsWith('[fd') || hn.startsWith('[fc') || hn.startsWith('[fe80')) {
+            return false;
+        }
+
         return true;
     } catch (e) {
         return false;

@@ -279,11 +279,11 @@ export default function Budget() {
             <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 bg-surface-container-low border border-outline-variant/30 rounded-xl p-4 md:p-6 shadow-sm">
 
                 <div className="flex items-center gap-4 w-full xl:w-auto justify-center xl:justify-start">
-                    <Button variant="outline" size="icon" className="h-10 w-10 rounded-full bg-muted border-outline-variant/30 text-muted-foreground hover:bg-surface-container-high hover:text-foreground" onClick={() => changeMonth(-1)}>
+                    <Button variant="outline" size="icon" className="h-10 w-10 rounded-full bg-muted border-outline-variant/30 text-muted-foreground hover:bg-surface-container-high hover:text-foreground" onClick={() => changeMonth(-1)} aria-label="Previous month" title="Previous month">
                         <ChevronLeft className="h-5 w-5" />
                     </Button>
                     <h2 className="text-2xl font-medium tracking-tight text-card-foreground min-w-[200px] text-center">{monthLabel}</h2>
-                    <Button variant="outline" size="icon" className="h-10 w-10 rounded-full bg-muted border-outline-variant/30 text-muted-foreground hover:bg-surface-container-high hover:text-foreground" onClick={() => changeMonth(1)}>
+                    <Button variant="outline" size="icon" className="h-10 w-10 rounded-full bg-muted border-outline-variant/30 text-muted-foreground hover:bg-surface-container-high hover:text-foreground" onClick={() => changeMonth(1)} aria-label="Next month" title="Next month">
                         <ChevronRight className="h-5 w-5" />
                     </Button>
                 </div>
@@ -483,7 +483,7 @@ export default function Budget() {
                                                     sweep_target_id: cat.sweep_target_id ? cat.sweep_target_id.toString() : ''
                                                 });
                                                 setShowEditCatModal(true);
-                                            }} title="Edit Category">
+                                            }} aria-label="Edit Category" title="Edit Category">
                                                 <Settings className="h-4 w-4" />
                                             </Button>
                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={async (e) => {
@@ -506,7 +506,7 @@ export default function Budget() {
                                                 } catch (err) {
                                                     alert(err.message);
                                                 }
-                                            }} title="Delete Category">
+                                            }} aria-label="Delete Category" title="Delete Category">
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
                                         </div>
@@ -938,7 +938,7 @@ export default function Budget() {
                                                 } catch (err) {
                                                     alert('Failed to delete template: ' + err.message);
                                                 }
-                                            }}>
+                                            }} aria-label="Delete template" title="Delete template">
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
                                         </div>

@@ -5,6 +5,9 @@ import authenticate from '../middleware/auth.js';
 import { getJwtSecret } from '../config/auth.js';
 
 const JWT_SECRET = getJwtSecret();
+// Generate a dummy hash once at startup to use for constant-time comparisons
+// to mitigate user enumeration timing attacks.
+const DUMMY_HASH = bcrypt.hashSync('dummy', 10);
 
 export default async function authRoutes(fastify) {
     // Register User
@@ -98,13 +101,14 @@ export default async function authRoutes(fastify) {
 
             // Find user
             const user = await db('users').where('email', identifier).orWhere('username', identifier).first();
-            if (!user) {
-                return reply.code(401).send({ error: 'Invalid credentials' });
-            }
+
+            // To prevent user enumeration via timing attacks, always run bcrypt.compare
+            const hashToCompare = user ? user.password_hash : DUMMY_HASH;
 
             // Check password
-            const validPassword = await bcrypt.compare(password, user.password_hash);
-            if (!validPassword) {
+            const validPassword = await bcrypt.compare(password, hashToCompare);
+
+            if (!user || !validPassword) {
                 return reply.code(401).send({ error: 'Invalid email or password' });
             }
 

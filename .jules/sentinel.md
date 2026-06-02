@@ -19,3 +19,10 @@
 **Vulnerability:** Found a Path Traversal vulnerability in the `api/src/routes/transactions.js` file upload endpoint for attachments. An attacker could potentially supply a filename with directory traversal characters (e.g., `../../../etc/passwd`) to escape the upload directory and write/read arbitrary files on the server.
 **Learning:** `path.join` combined with `part.filename` directly from the user can result in path traversal, even if the filename is prepended with a random UUID (e.g., `1234-../../../etc/passwd` resolves to `/etc/passwd`).
 **Prevention:** Always sanitize user-supplied filenames before using them in file system operations. `path.basename(filename)` is a simple way to extract just the file name and discard any directory components.
+
+## 2024-05-24 - Fix User Enumeration Vulnerability in Authentication Endpoints
+**Vulnerability:** The `/login` endpoint returned different responses based on user existence: a fast rejection with "Invalid credentials" if the user didn't exist, and a slower rejection (after `bcrypt.compare`) with "Invalid email or password" if the user existed but gave the wrong password. This allows an attacker to enumerate valid user accounts by measuring response times or observing the error message.
+**Learning:** Returning early or leaking the existence of an account is a security risk. Timing vulnerabilities arise when the computationally expensive password hashing/comparison (e.g., `bcrypt.compare`) is bypassed for non-existent users, leaking their non-existence through server response times.
+**Prevention:**
+1. Use identical error messages for both "user not found" and "incorrect password" (e.g., "Invalid email or password").
+2. Implement constant-time logic. When a user is not found, execute a dummy password comparison against a pre-computed valid dummy hash (e.g., `const DUMMY_HASH = bcrypt.hashSync('dummy', 10);` then `await bcrypt.compare(password, DUMMY_HASH);`) to ensure the server response time is uniform regardless of whether the user exists or not.

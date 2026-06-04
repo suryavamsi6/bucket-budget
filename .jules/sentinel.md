@@ -19,3 +19,10 @@
 **Vulnerability:** Found a Path Traversal vulnerability in the `api/src/routes/transactions.js` file upload endpoint for attachments. An attacker could potentially supply a filename with directory traversal characters (e.g., `../../../etc/passwd`) to escape the upload directory and write/read arbitrary files on the server.
 **Learning:** `path.join` combined with `part.filename` directly from the user can result in path traversal, even if the filename is prepended with a random UUID (e.g., `1234-../../../etc/passwd` resolves to `/etc/passwd`).
 **Prevention:** Always sanitize user-supplied filenames before using them in file system operations. `path.basename(filename)` is a simple way to extract just the file name and discard any directory components.
+
+## 2025-06-04 - User Enumeration via Timing Attack in Login Endpoint
+**Vulnerability:** The `/login` endpoint returned an immediate "Invalid credentials" error when a user was not found. However, if the user was found, it performed a slow `bcrypt.compare` operation before determining if the password was valid.
+**Learning:** This timing difference (fast response for invalid user, slow response for valid user) allowed an attacker to enumerate valid email addresses or usernames in the database by measuring the response time of login attempts.
+**Prevention:**
+1. Always return a generic error message (e.g., "Invalid email or password") regardless of whether the user exists or not.
+2. Ensure that the processing time is roughly constant for both valid and invalid users. We achieved this by pre-computing a dummy `bcrypt` hash (`const DUMMY_HASH = bcrypt.hashSync('dummy', 10);`) at module load, and performing `await bcrypt.compare(password, DUMMY_HASH);` when the user is not found in the database. This simulates the time taken by a legitimate password check.

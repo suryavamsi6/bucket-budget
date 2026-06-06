@@ -19,3 +19,11 @@
 **Vulnerability:** Found a Path Traversal vulnerability in the `api/src/routes/transactions.js` file upload endpoint for attachments. An attacker could potentially supply a filename with directory traversal characters (e.g., `../../../etc/passwd`) to escape the upload directory and write/read arbitrary files on the server.
 **Learning:** `path.join` combined with `part.filename` directly from the user can result in path traversal, even if the filename is prepended with a random UUID (e.g., `1234-../../../etc/passwd` resolves to `/etc/passwd`).
 **Prevention:** Always sanitize user-supplied filenames before using them in file system operations. `path.basename(filename)` is a simple way to extract just the file name and discard any directory components.
+
+## 2026-03-08 - User Enumeration Timing Attack in Login
+**Vulnerability:** The login endpoint checked if a user existed in the database and returned early if they did not. If they did exist, it proceeded to compute a computationally expensive `bcrypt.compare`. An attacker could measure the response time of the login request to determine whether an email or username existed in the system (user enumeration).
+**Learning:** Returning early or providing different error messages ("Invalid credentials" vs "Invalid password") for non-existent users creates a side-channel timing vulnerability. To mitigate this, both the success and failure paths of user lookup must take roughly the same amount of time. Generating the dummy hash synchronously *during a request* would block the Node.js event loop, so the dummy hash must be initialized at the module's top level.
+**Prevention:**
+1. Always return a generic error message like "Invalid email or password" for all authentication failures.
+2. Initialize a valid dummy `bcrypt` hash at the module scope level to prevent blocking the event loop on each request.
+3. Perform a constant-time check: if the user is not found, use `bcrypt.compare` against the dummy hash to ensure the processing time remains constant regardless of user existence.

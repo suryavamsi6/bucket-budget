@@ -1,0 +1,3 @@
+## 2026-06-07 - Adding ARIA labels to globally-used layout icon buttons
+**Learning:** Icon-only layout and system-level buttons (e.g., Theme Toggle, Sidebar Nav Toggle, floating action buttons) in this app often utilize a custom `<Button size="icon">` or native `<button>` element but initially lacked standard descriptive ARIA attributes and `title` tooltips.
+**Action:** Always verify that layout-level icon buttons (such as those in global headers or persistent FABs) have appropriate `aria-label`, stateful `aria-expanded` attributes for toggles, and `aria-keyshortcuts` when mapped to global commands.

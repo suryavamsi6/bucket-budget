@@ -627,7 +627,7 @@ export default function Transactions() {
                                                 value={split.memo}
                                                 onChange={e => updateSplit(idx, 'memo', e.target.value)}
                                             />
-                                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removeSplit(idx)}>
+                                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removeSplit(idx)} aria-label="Remove split">
                                                 <X className="h-3.5 w-3.5" />
                                             </Button>
                                         </div>

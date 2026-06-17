@@ -279,11 +279,11 @@ export default function Budget() {
             <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 bg-surface-container-low border border-outline-variant/30 rounded-xl p-4 md:p-6 shadow-sm">
 
                 <div className="flex items-center gap-4 w-full xl:w-auto justify-center xl:justify-start">
-                    <Button variant="outline" size="icon" className="h-10 w-10 rounded-full bg-muted border-outline-variant/30 text-muted-foreground hover:bg-surface-container-high hover:text-foreground" onClick={() => changeMonth(-1)}>
+                    <Button variant="outline" size="icon" className="h-10 w-10 rounded-full bg-muted border-outline-variant/30 text-muted-foreground hover:bg-surface-container-high hover:text-foreground" onClick={() => changeMonth(-1)} aria-label="Previous month">
                         <ChevronLeft className="h-5 w-5" />
                     </Button>
                     <h2 className="text-2xl font-medium tracking-tight text-card-foreground min-w-[200px] text-center">{monthLabel}</h2>
-                    <Button variant="outline" size="icon" className="h-10 w-10 rounded-full bg-muted border-outline-variant/30 text-muted-foreground hover:bg-surface-container-high hover:text-foreground" onClick={() => changeMonth(1)}>
+                    <Button variant="outline" size="icon" className="h-10 w-10 rounded-full bg-muted border-outline-variant/30 text-muted-foreground hover:bg-surface-container-high hover:text-foreground" onClick={() => changeMonth(1)} aria-label="Next month">
                         <ChevronRight className="h-5 w-5" />
                     </Button>
                 </div>
@@ -472,7 +472,7 @@ export default function Budget() {
 
                                         {/* Quick Actions (Hover) */}
                                         <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex items-center gap-1">
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-surface-container-high" onClick={(e) => {
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-surface-container-high" aria-label="Edit category" onClick={(e) => {
                                                 e.stopPropagation();
                                                 setEditCat({
                                                     ...cat,
@@ -486,7 +486,7 @@ export default function Budget() {
                                             }} title="Edit Category">
                                                 <Settings className="h-4 w-4" />
                                             </Button>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={async (e) => {
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" aria-label="Delete category" onClick={async (e) => {
                                                 e.stopPropagation();
                                                 e.preventDefault();
                                                 if (!window.confirm('Delete this category? Transactions linked to it may become uncategorized.')) return;
@@ -926,7 +926,7 @@ export default function Budget() {
                                             </div>
                                         </button>
                                         <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={async (e) => {
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" aria-label="Delete custom template" onClick={async (e) => {
                                                 e.stopPropagation();
                                                 if (!window.confirm(`Delete custom template "${tpl.name}"?`)) return;
                                                 const newTpls = customTemplates.filter((_, idx) => idx !== i);

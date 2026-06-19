@@ -279,11 +279,11 @@ export default function Budget() {
             <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 bg-surface-container-low border border-outline-variant/30 rounded-xl p-4 md:p-6 shadow-sm">
 
                 <div className="flex items-center gap-4 w-full xl:w-auto justify-center xl:justify-start">
-                    <Button variant="outline" size="icon" className="h-10 w-10 rounded-full bg-muted border-outline-variant/30 text-muted-foreground hover:bg-surface-container-high hover:text-foreground" onClick={() => changeMonth(-1)}>
+                    <Button variant="outline" size="icon" aria-label="Previous month" title="Previous month" className="h-10 w-10 rounded-full bg-muted border-outline-variant/30 text-muted-foreground hover:bg-surface-container-high hover:text-foreground" onClick={() => changeMonth(-1)}>
                         <ChevronLeft className="h-5 w-5" />
                     </Button>
                     <h2 className="text-2xl font-medium tracking-tight text-card-foreground min-w-[200px] text-center">{monthLabel}</h2>
-                    <Button variant="outline" size="icon" className="h-10 w-10 rounded-full bg-muted border-outline-variant/30 text-muted-foreground hover:bg-surface-container-high hover:text-foreground" onClick={() => changeMonth(1)}>
+                    <Button variant="outline" size="icon" aria-label="Next month" title="Next month" className="h-10 w-10 rounded-full bg-muted border-outline-variant/30 text-muted-foreground hover:bg-surface-container-high hover:text-foreground" onClick={() => changeMonth(1)}>
                         <ChevronRight className="h-5 w-5" />
                     </Button>
                 </div>

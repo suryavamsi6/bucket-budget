@@ -184,7 +184,7 @@ function ProtectedLayout() {
                                 variant="ghost"
                                 size="icon"
                                 className="rounded-full text-muted-foreground hover:text-foreground md:hidden"
-                                onClick={() => setSidebarOpen(!sidebarOpen)}
+                                onClick={() => setSidebarOpen(!sidebarOpen)} aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"} title={sidebarOpen ? "Close sidebar" : "Open sidebar"} aria-expanded={sidebarOpen}
                             >
                                 {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
                             </Button>
@@ -203,7 +203,7 @@ function ProtectedLayout() {
                                     const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % appearanceCycle.length : 0;
                                     setTheme(appearanceCycle[nextIndex]);
                                 }}
-                                className="rounded-full text-muted-foreground hover:text-foreground"
+                                className="rounded-full text-muted-foreground hover:text-foreground" aria-label="Toggle theme" title="Toggle theme"
                             >
                                 <Moon className="h-5 w-5" />
                             </Button>
@@ -253,7 +253,7 @@ function ProtectedLayout() {
             <button
                 onClick={() => setQuickEntryOpen(true)}
                 className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-container text-on-primary-container shadow-lg hover:shadow-xl transition-all active:scale-95"
-                title="Quick Add (Ctrl+N)"
+                title="Quick Add (Ctrl+N)" aria-label="Quick Add" aria-keyshortcuts="Control+N"
             >
                 <Plus className="h-6 w-6" />
             </button>

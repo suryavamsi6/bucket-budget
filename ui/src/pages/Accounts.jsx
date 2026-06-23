@@ -196,13 +196,13 @@ export default function Accounts() {
                                                 {fmt(acc.balance)}
                                             </div>
                                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => { setShowReconcile(acc); setReconcileBalance(acc.balance); }} title="Reconcile" aria-label={`Reconcile ${acc.name}`}>
+                                                <Button variant="ghost" size="icon" aria-label={`Reconcile ${acc.name}`} className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => { setShowReconcile(acc); setReconcileBalance(acc.balance); }} title="Reconcile">
                                                     <CheckSquare className="h-3 w-3" />
                                                 </Button>
-                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-info" onClick={() => openEdit(acc)} title="Edit" aria-label={`Edit ${acc.name}`}>
+                                                <Button variant="ghost" size="icon" aria-label={`Edit ${acc.name}`} className="h-6 w-6 text-muted-foreground hover:text-info" onClick={() => openEdit(acc)} title="Edit">
                                                     <Edit className="h-3 w-3" />
                                                 </Button>
-                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(acc.id)} title="Delete" aria-label={`Delete ${acc.name}`}>
+                                                <Button variant="ghost" size="icon" aria-label={`Delete ${acc.name}`} className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(acc.id)} title="Delete">
                                                     <Trash2 className="h-3 w-3" />
                                                 </Button>
                                             </div>

@@ -7,6 +7,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
+import { escapeHtml } from '../lib/utils.js';
 
 const QUICK_PROMPTS = [
     { icon: '📊', label: 'Analyze my spending', prompt: 'Analyze my spending patterns. What are my top spending categories? Are there any areas where I could cut back?' },
@@ -173,11 +174,11 @@ export default function AiAdvisor() {
                                         }`}>
                                         <div className="text-sm whitespace-pre-wrap leading-relaxed" dangerouslySetInnerHTML={{
                                             __html: msg.role === 'assistant'
-                                                ? msg.content
+                                                ? escapeHtml(msg.content)
                                                     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                                                     .replace(/\n/g, '<br/>')
                                                     .replace(/^- /gm, '• ')
-                                                : msg.content
+                                                : escapeHtml(msg.content)
                                         }} />
                                         {msg.role === 'assistant' && !msg.error && (
                                             <button onClick={() => copyMessage(msg.content, i)}

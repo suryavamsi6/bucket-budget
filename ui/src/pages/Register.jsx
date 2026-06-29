@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Sparkles, Target, Shield } from 'lucide-react';
+import { Sparkles, Target, Shield, Loader2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -154,7 +154,12 @@ export default function Register() {
                         </CardContent>
                         <CardFooter className="flex flex-col space-y-4">
                             <Button type="submit" className="h-11 w-full" disabled={isLoading}>
-                                {isLoading ? 'Creating account...' : 'Create account'}
+                                {isLoading ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Creating account...
+                                    </>
+                                ) : 'Create account'}
                             </Button>
                             <div className="text-center text-sm text-muted-foreground">
                                 Already have an account?{' '}

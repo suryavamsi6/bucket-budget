@@ -184,6 +184,9 @@ function ProtectedLayout() {
                                 variant="ghost"
                                 size="icon"
                                 className="rounded-full text-muted-foreground hover:text-foreground md:hidden"
+                                aria-label="Toggle menu"
+                                title="Toggle menu"
+                                aria-expanded={sidebarOpen}
                                 onClick={() => setSidebarOpen(!sidebarOpen)}
                             >
                                 {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -203,6 +206,8 @@ function ProtectedLayout() {
                                     const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % appearanceCycle.length : 0;
                                     setTheme(appearanceCycle[nextIndex]);
                                 }}
+                                aria-label="Toggle theme"
+                                title="Toggle theme"
                                 className="rounded-full text-muted-foreground hover:text-foreground"
                             >
                                 <Moon className="h-5 w-5" />

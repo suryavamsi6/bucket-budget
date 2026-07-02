@@ -183,6 +183,9 @@ function ProtectedLayout() {
                             <Button
                                 variant="ghost"
                                 size="icon"
+                                aria-label={sidebarOpen ? "Close menu" : "Open menu"}
+                                aria-expanded={sidebarOpen}
+                                title={sidebarOpen ? "Close menu" : "Open menu"}
                                 className="rounded-full text-muted-foreground hover:text-foreground md:hidden"
                                 onClick={() => setSidebarOpen(!sidebarOpen)}
                             >
@@ -198,6 +201,8 @@ function ProtectedLayout() {
                             <Button
                                 variant="ghost"
                                 size="icon"
+                                aria-label="Toggle theme"
+                                title="Toggle theme"
                                 onClick={() => {
                                     const currentIndex = appearanceCycle.indexOf(theme);
                                     const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % appearanceCycle.length : 0;

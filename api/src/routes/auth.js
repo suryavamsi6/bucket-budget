@@ -5,6 +5,7 @@ import authenticate from '../middleware/auth.js';
 import { getJwtSecret } from '../config/auth.js';
 
 const JWT_SECRET = getJwtSecret();
+const DUMMY_HASH = bcrypt.hashSync('dummy', 10);
 
 export default async function authRoutes(fastify) {
     // Register User
@@ -99,13 +100,14 @@ export default async function authRoutes(fastify) {
             // Find user
             const user = await db('users').where('email', identifier).orWhere('username', identifier).first();
             if (!user) {
+                await bcrypt.compare(password, DUMMY_HASH);
                 return reply.code(401).send({ error: 'Invalid credentials' });
             }
 
             // Check password
             const validPassword = await bcrypt.compare(password, user.password_hash);
             if (!validPassword) {
-                return reply.code(401).send({ error: 'Invalid email or password' });
+                return reply.code(401).send({ error: 'Invalid credentials' });
             }
 
             // Generate token

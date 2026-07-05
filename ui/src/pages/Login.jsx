@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Sparkles, ShieldCheck, Wallet } from 'lucide-react';
+import { Sparkles, ShieldCheck, Wallet, Loader2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -112,7 +112,7 @@ export default function Login() {
                         </CardContent>
                         <CardFooter className="flex flex-col space-y-4">
                             <Button type="submit" className="h-11 w-full" disabled={isLoading}>
-                                {isLoading ? 'Signing in...' : 'Sign in'}
+                                {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing in...</> : 'Sign in'}
                             </Button>
                             <div className="text-center text-sm text-muted-foreground">
                                 Don't have an account?{' '}

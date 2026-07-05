@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Lock, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Lock, CheckCircle, AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '../components/ui/alert';
 
 export default function ResetPassword() {
@@ -146,7 +146,7 @@ export default function ResetPassword() {
                             disabled={status === 'loading'}
                             className="w-full bg-primary hover:bg-primary/92 text-primary-foreground font-medium py-3 rounded-full transition-all active:scale-[0.98] shadow-sm disabled:opacity-38 disabled:pointer-events-none"
                         >
-                            {status === 'loading' ? 'Updating...' : 'Reset Password'}
+                            {status === 'loading' ? <><Loader2 className="inline mr-2 h-4 w-4 animate-spin" /> Updating...</> : 'Reset Password'}
                         </button>
                     </form>
                 )}

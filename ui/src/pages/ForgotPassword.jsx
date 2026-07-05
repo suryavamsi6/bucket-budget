@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Mail, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Mail, CheckCircle, AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '../components/ui/alert';
 
 export default function ForgotPassword() {
@@ -92,7 +92,7 @@ export default function ForgotPassword() {
                             disabled={status === 'loading'}
                             className="w-full bg-primary hover:bg-primary/92 text-primary-foreground font-medium py-3 rounded-full transition-all active:scale-[0.98] shadow-sm disabled:opacity-38 disabled:pointer-events-none"
                         >
-                            {status === 'loading' ? 'Sending link...' : 'Send reset link'}
+                            {status === 'loading' ? <><Loader2 className="inline mr-2 h-4 w-4 animate-spin" /> Sending link...</> : 'Send reset link'}
                         </button>
 
                         <div className="text-center">

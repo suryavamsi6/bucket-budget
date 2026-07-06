@@ -153,7 +153,7 @@ export default function Goals() {
                                                     <Plus className="w-3 h-3 mr-1" /> Add
                                                 </Button>
                                             )}
-                                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground" onClick={() => openEdit(goal)}>
+                                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground" onClick={() => openEdit(goal)} aria-label="Edit goal" title="Edit goal">
                                                 <Edit2 className="w-3 h-3" />
                                             </Button>
                                         </div>
@@ -192,7 +192,7 @@ export default function Goals() {
                             <Label>Icon</Label>
                             <div className="flex flex-wrap gap-2">
                                 {GOAL_ICONS.map(icon => (
-                                    <button key={icon} type="button" onClick={() => setForm({ ...form, icon })}
+                                    <button key={icon} type="button" onClick={() => setForm({ ...form, icon })} aria-label={`Select icon ${icon}`} title={`Select icon ${icon}`}
                                         className={`text-xl p-1.5 rounded-xl transition-all ${form.icon === icon ? 'bg-primary/20 ring-2 ring-primary scale-110' : 'hover:bg-muted'}`}>
                                         {icon}
                                     </button>
@@ -203,7 +203,7 @@ export default function Goals() {
                             <Label>Color</Label>
                             <div className="flex gap-2">
                                 {GOAL_COLORS.map(c => (
-                                    <button key={c} type="button" onClick={() => setForm({ ...form, color: c })}
+                                    <button key={c} type="button" onClick={() => setForm({ ...form, color: c })} aria-label={`Select color ${c}`} title={`Select color ${c}`}
                                         className={`w-6 h-6 rounded-full transition-all ${form.color === c ? 'ring-2 ring-offset-2 ring-offset-card scale-110' : ''}`}
                                         style={{ backgroundColor: c, ringColor: c }} />
                                 ))}

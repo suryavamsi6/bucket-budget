@@ -19,3 +19,8 @@
 **Vulnerability:** Found a Path Traversal vulnerability in the `api/src/routes/transactions.js` file upload endpoint for attachments. An attacker could potentially supply a filename with directory traversal characters (e.g., `../../../etc/passwd`) to escape the upload directory and write/read arbitrary files on the server.
 **Learning:** `path.join` combined with `part.filename` directly from the user can result in path traversal, even if the filename is prepended with a random UUID (e.g., `1234-../../../etc/passwd` resolves to `/etc/passwd`).
 **Prevention:** Always sanitize user-supplied filenames before using them in file system operations. `path.basename(filename)` is a simple way to extract just the file name and discard any directory components.
+
+## 2026-03-08 - User Enumeration Timing Attack in Login
+**Vulnerability:** The login endpoint at `/login` returned immediately with 'Invalid credentials' when a user was not found, but performed an expensive `bcrypt.compare` when the user existed. This timing difference and distinct error message enabled attackers to enumerate valid user accounts.
+**Learning:** To prevent user enumeration, login endpoints must return identical generic error messages and use constant-time processing for both success and failure paths. Importantly, the dummy hash used for the failed case must be generated once during module initialization (e.g., `bcrypt.hashSync`) to avoid blocking the Node.js event loop on every request.
+**Prevention:** Generate a dummy hash on startup (`const DUMMY_HASH = bcrypt.hashSync('dummy', 10);`). When a user is not found, evaluate `await bcrypt.compare(password, DUMMY_HASH);` and return the standardized 'Invalid email or password' error message.
